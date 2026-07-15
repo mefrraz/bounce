@@ -33,6 +33,7 @@ func (c *Client) Get(url string) ([]byte, error) {
 		}
 		req.Header.Set("User-Agent", userAgent)
 		req.Header.Set("Accept", "application/json, text/html")
+		req.Header.Set("Referer", "https://www.fpb.pt/")
 		return c.http.Do(req)
 	})
 }

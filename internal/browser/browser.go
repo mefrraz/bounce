@@ -1,53 +1,58 @@
-// Package browser provides headless Chrome helpers for scraping
-// JavaScript-rendered pages from FPB.
 package browser
 
 import (
 	"context"
 	"log"
+	"os"
 	"time"
 
 	"github.com/chromedp/chromedp"
 )
 
-// Client wraps a chromedp context for fetching JS-rendered pages.
 type Client struct {
 	allocCtx context.Context
 }
 
-// NewClient creates a headless Chrome client.
 func NewClient() (*Client, error) {
-	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+	opts := []chromedp.ExecAllocatorOption{
 		chromedp.NoSandbox,
 		chromedp.DisableGPU,
-		chromedp.Flag("headless", true),
-	)
+		chromedp.Flag("headless", "new"),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("no-zygote", true),
+	}
+
+	// Use CHROME_BIN env var or default paths
+	chromePath := os.Getenv("CHROME_BIN")
+	if chromePath != "" {
+		opts = append(opts, chromedp.ExecPath(chromePath))
+	}
 
 	allocCtx, _ := chromedp.NewExecAllocator(context.Background(), opts...)
 	return &Client{allocCtx: allocCtx}, nil
 }
 
-// FetchHTML loads a URL in headless Chrome and returns the fully rendered HTML.
 func (c *Client) FetchHTML(url string, waitVisible string) (string, error) {
 	ctx, cancel := chromedp.NewContext(c.allocCtx)
 	defer cancel()
 
-	ctx, cancel = context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel = context.WithTimeout(ctx, 40*time.Second)
 	defer cancel()
 
 	var html string
 	tasks := []chromedp.Action{
 		chromedp.Navigate(url),
-		chromedp.Sleep(2 * time.Second), // wait for JS to render
+		chromedp.Sleep(3 * time.Second),
 	}
 
 	if waitVisible != "" {
 		tasks = append(tasks, chromedp.WaitVisible(waitVisible, chromedp.ByQuery))
-	} else {
-		tasks = append(tasks, chromedp.Sleep(2*time.Second))
 	}
 
-	tasks = append(tasks, chromedp.OuterHTML("html", &html))
+	tasks = append(tasks,
+		chromedp.Sleep(2*time.Second),
+		chromedp.OuterHTML("html", &html),
+	)
 
 	if err := chromedp.Run(ctx, tasks...); err != nil {
 		return "", err
