@@ -208,58 +208,51 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 
 	detail := &models.GameDetail{}
 
-	// Team names: try multiple sources
-	// 1. From <title> tag (regex backup)
-	titleRe := regexp.MustCompile(`<title>\s*([^<]+)\s*</title>`)
-	if m := titleRe.FindStringSubmatch(html); len(m) > 1 {
-		titleText := strings.TrimSpace(m[1])
-		// "SL Benfica  vs. Futebol Clube do Porto  | Liga Betclic Masculina"
-		if idx := strings.Index(titleText, "|"); idx > 0 {
-			teamPart := strings.TrimSpace(titleText[:idx])
-			vsParts := strings.SplitN(teamPart, " vs. ", 2)
-			if len(vsParts) != 2 {
-				vsParts = strings.SplitN(teamPart, " - ", 2)
-			}
-			if len(vsParts) == 2 {
-				detail.HomeTeam = strings.TrimSpace(vsParts[0])
-				detail.AwayTeam = strings.TrimSpace(vsParts[1])
-			}
+	// Teams: .team.home .bigName / .team.away .bigName (Dribly selectors)
+	detail.HomeTeam = strings.TrimSpace(doc.Find(".team.home .bigName").First().Text())
+	detail.AwayTeam = strings.TrimSpace(doc.Find(".team.away .bigName").First().Text())
+
+	// Logos: .team.home img / .team.away img
+	detail.HomeLogo, _ = doc.Find(".team.home img").First().Attr("src")
+	detail.AwayLogo, _ = doc.Find(".team.away img").First().Attr("src")
+
+	// Scores: .points span (Dribly: 2 spans with scores)
+	pointsSpans := doc.Find(".points span")
+	if pointsSpans.Length() >= 2 {
+		s1 := atoi(strings.TrimSpace(pointsSpans.Eq(0).Text()))
+		s2 := atoi(strings.TrimSpace(pointsSpans.Eq(1).Text()))
+		if s1 > 0 || s2 > 0 {
+			detail.HomeScore = &s1
+			detail.AwayScore = &s2
+			detail.Status = "FINALIZADO"
 		}
 	}
 
-	// 2. From team-info.team links
-	teamInfos := doc.Find("a.team-info.team")
-	if teamInfos.Length() >= 2 {
-		detail.HomeLogo, _ = teamInfos.Eq(0).Find("img").Attr("src")
-		detail.AwayLogo, _ = teamInfos.Eq(1).Find("img").Attr("src")
-		// Club name as fallback for team name
-		if detail.HomeTeam == "" {
-			detail.HomeTeam = strings.TrimSpace(teamInfos.Eq(0).Find(".club").First().Text())
-		}
-		if detail.AwayTeam == "" {
-			detail.AwayTeam = strings.TrimSpace(teamInfos.Eq(1).Find(".club").First().Text())
-		}
-	}
+	// Date: .date (Dribly: "30 MAI 2026")
+	dateText := strings.TrimSpace(doc.Find(".date").First().Text())
+	detail.Date = ParseDatePt(dateText)
 
-	// Score: try various places
-	// Look for score in the page
-	doc.Find(".results_text").Each(func(_ int, el *goquery.Selection) {
-		val := atoi(strings.TrimSpace(el.Text()))
-		if detail.HomeScore == nil {
-			detail.HomeScore = &val
-		} else if detail.AwayScore == nil {
-			detail.AwayScore = &val
+	// Venue: .location a
+	detail.Venue = strings.TrimSpace(doc.Find(".location a").First().Text())
+
+	// Time: .match-time
+	timeText := strings.TrimSpace(doc.Find(".match-time").First().Text())
+	detail.Time = strings.ReplaceAll(strings.ReplaceAll(timeText, " H ", ":"), " ", "")
+
+	// Periods: .match-period .partial-score (Dribly: "21 - 20")
+	doc.Find(".match-period").Each(func(_ int, period *goquery.Selection) {
+		label := strings.TrimSpace(period.Find("p").First().Text())
+		scoreText := strings.TrimSpace(period.Find(".partial-score").First().Text())
+		parts := strings.Split(scoreText, "-")
+		if len(parts) == 2 {
+			hs := atoi(strings.TrimSpace(parts[0]))
+			as := atoi(strings.TrimSpace(parts[1]))
+			detail.Periods = append(detail.Periods, models.Period{
+				Number: len(detail.Periods) + 1, HomeScore: hs, AwayScore: as,
+			})
+			_ = label
 		}
 	})
-	if detail.HomeScore != nil || detail.AwayScore != nil {
-		detail.Status = "FINALIZADO"
-	}
-
-	// Venue: try location-wrapper
-	detail.Venue = strings.TrimSpace(doc.Find(".location-wrapper b").First().Text())
-
-	// Date
-	detail.Date = ParseDatePt(strings.TrimSpace(doc.Find("h3.date").First().Text()))
 
 	return detail, nil
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"log"
 	"regexp"
 	"strings"
 
@@ -52,37 +53,25 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	if len(parts) != 2 { return nil, fmt.Errorf("invalid season: %s", season) }
 	yearStart, yearEnd := parts[0], parts[1]
 
-	categories := []struct{ e, g string }{
-		{"Sénior", "masculino"}, {"Sénior", "feminino"},
-		{"Sub 20", "masculino"}, {"Sub 18", "masculino"}, {"Sub-19", "feminino"},
-		{"Sub 16", "masculino"}, {"Sub-16", "feminino"},
-		{"Sub 14", "masculino"}, {"Sub-14", "feminino"},
+	p := url.Values{}
+	p.Set("action", "get_more_days")
+	p.Set("epoca", season)
+	p.Set("clube", clubID)
+	p.Set("period[time_option]", "fromInit")
+	p.Set("period[from_date]", yearStart+"/09/01")
+	p.Set("period[to_date]", yearEnd+"/06/30")
+	body, err := f.http.Get(fpbBase + "/wp-admin/admin-ajax.php?" + p.Encode())
+	if err != nil { return nil, err }
+	var ar struct{ Result interface{}; Hasmore bool }
+	if err := json.Unmarshal(body, &ar); err != nil { return nil, err }
+	var h strings.Builder
+	switch v := ar.Result.(type) {
+	case string: h.WriteString(v)
+	case []interface{}:
+		for _, item := range v { if s, ok := item.(string); ok { h.WriteString(s) } }
 	}
-	var all []models.Game
-	seen := map[string]bool{}
-	for _, cat := range categories {
-		p := url.Values{}
-		p.Set("action", "get_more_days")
-		p.Set("epoca", season); p.Set("escalao", cat.e); p.Set("genero", cat.g)
-		p.Set("clube", clubID)
-		p.Set("period[time_option]", "fromInit")
-		p.Set("period[from_date]", yearStart+"/09/01")
-		p.Set("period[to_date]", yearEnd+"/06/30")
-		body, err := f.http.Get(fpbBase + "/wp-admin/admin-ajax.php?" + p.Encode())
-		if err != nil { continue }
-		var ar struct{ Result interface{}; Hasmore bool }
-		if err := json.Unmarshal(body, &ar); err != nil { continue }
-		var h strings.Builder
-		switch v := ar.Result.(type) {
-		case string: h.WriteString(v)
-		case []interface{}:
-			for _, item := range v { if s, ok := item.(string); ok { h.WriteString(s) } }
-		}
-		games := scraper.ScrapeGames(h.String(), "FINALIZADO")
-		for _, g := range games {
-			if !seen[g.ID] { seen[g.ID] = true; g.Category = cat.e + " " + cat.g; g.Escalao = cat.e; all = append(all, g) }
-		}
-	}
+	all := scraper.ScrapeGames(h.String(), "FINALIZADO")
+	log.Printf("[ajax] %d games for club %s season %s", len(all), clubID, season)
 	raw2, _ := json.Marshal(all)
 	f.cache.Set(key, raw2, cache.TTLToday)
 	return all, nil
