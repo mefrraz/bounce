@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -14,6 +15,9 @@ import (
 	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/fpbapi"
 	"github.com/mefrraz/bounce/internal/httpclient"
+	"github.com/mefrraz/bounce/internal/models"
+	"github.com/mefrraz/bounce/internal/scheduler"
+	"github.com/mefrraz/bounce/internal/ws"
 )
 
 func main() {
@@ -40,6 +44,23 @@ func main() {
 	defer client.Stop()
 
 	fpb := fpbapi.New(client, store)
+	hub := ws.NewHub()
+
+	sched := scheduler.New(
+		func(internalID string) (*models.Game, error) { return fpb.GetGame(internalID) },
+		func() ([]models.Game, error) {
+			today := time.Now().Format("2006-01-02")
+			log.Printf("Daily fetch: %s (no competitions configured)", today)
+			return nil, nil
+		},
+		func(game models.Game) {
+			eventType := "score_update"
+			if game.Status == "FINALIZADO" {
+				eventType = "game_finished"
+			}
+			hub.Broadcast(game.ID, ws.Event{Type: eventType, Data: game})
+		},
+	)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -58,9 +79,13 @@ func main() {
 
 	handler := apihandler.NewHandler(fpb)
 	handler.RegisterRoutes(r)
+	hub.RegisterRoutes(r)
+
+	sched.Start()
+	defer sched.Stop()
 
 	addr := ":" + port
-	log.Printf("Bounce v0.3.0 starting on %s", addr)
+	log.Printf("Bounce v0.4.0 starting on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
