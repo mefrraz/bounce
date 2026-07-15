@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  bounce:
+    image: ghcr.io/mefrraz/bounce:latest
+    container_name: bounce
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - BOUNCE_PORT=3001
+      - BOUNCE_DATA_DIR=/data
+      - BOUNCE_VAPID_EMAIL=me.frraz@gmail.com
+    volumes:
+      - bounce-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  bounce-data:

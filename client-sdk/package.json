@@ -1,0 +1,17 @@
+{
+  "name": "@dribly/bounce-client",
+  "version": "0.1.0",
+  "description": "TypeScript client for Bounce — Smart Sports Data Proxy",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["basketball", "fpb", "sports", "bounce", "dribly"],
+  "license": "AGPL-3.0",
+  "devDependencies": {
+    "typescript": "^5.2.0"
+  }
+}
