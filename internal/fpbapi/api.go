@@ -53,10 +53,10 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	yearStart, yearEnd := parts[0], parts[1]
 
 	categories := []struct{ e, g string }{
-		{"Senior", "masculino"}, {"Senior", "feminino"},
-		{"Sub-23", "masculino"}, {"Sub-19", "masculino"}, {"Sub-19", "feminino"},
-		{"Sub-16", "masculino"}, {"Sub-16", "feminino"},
-		{"Sub-14", "masculino"}, {"Sub-14", "feminino"},
+		{"Sénior", "masculino"}, {"Sénior", "feminino"},
+		{"Sub 20", "masculino"}, {"Sub 18", "masculino"}, {"Sub-19", "feminino"},
+		{"Sub 16", "masculino"}, {"Sub-16", "feminino"},
+		{"Sub 14", "masculino"}, {"Sub-14", "feminino"},
 	}
 	var all []models.Game
 	seen := map[string]bool{}
@@ -80,7 +80,7 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 		}
 		games := scraper.ScrapeGames(h.String(), "FINALIZADO")
 		for _, g := range games {
-			if !seen[g.ID] { seen[g.ID] = true; g.Category = cat.e + " " + cat.g; all = append(all, g) }
+			if !seen[g.ID] { seen[g.ID] = true; g.Category = cat.e + " " + cat.g; g.Escalao = cat.e; all = append(all, g) }
 		}
 	}
 	raw2, _ := json.Marshal(all)
