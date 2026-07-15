@@ -1,0 +1,26 @@
+# Binaries
+bounce
+bounce.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+
+# SQLite
+*.db
+*.db-journal
+*.db-wal
+
+# Data volume
+data/
+
+# Test coverage
+coverage.out
