@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/mefrraz/bounce/internal/browser"
 	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/httpclient"
 	"github.com/mefrraz/bounce/internal/models"
@@ -16,12 +17,13 @@ import (
 const fpbBase = "https://www.fpb.pt"
 
 type FPBAPI struct {
-	http  *httpclient.Client
-	cache *cache.Store
+	http    *httpclient.Client
+	cache   *cache.Store
+	browser *browser.Client
 }
 
-func New(c *httpclient.Client, s *cache.Store) *FPBAPI {
-	return &FPBAPI{http: c, cache: s}
+func New(c *httpclient.Client, s *cache.Store, b *browser.Client) *FPBAPI {
+	return &FPBAPI{http: c, cache: s, browser: b}
 }
 
 // GetGame fetches a game by internal FPB ID via HTML scraping.

@@ -1,5 +1,5 @@
 # Stage 1: build
-FROM golang:alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -10,10 +10,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X github.com/mefrraz/boun
 # Stage 2: runtime
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata wget
+RUN apk add --no-cache ca-certificates tzdata wget chromium
 COPY --from=builder /bounce /usr/local/bin/bounce
 
 ENV BOUNCE_PORT=3001
+ENV CHROME_BIN=/usr/bin/chromium-browser
 EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
