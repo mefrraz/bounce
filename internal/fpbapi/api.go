@@ -57,6 +57,22 @@ func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 		return nil, fmt.Errorf("parse game %s: %w", internalID, err)
 	}
 
+	// If no scores and browser available, try JS rendering
+	if detail.HomeScore == nil && f.browser != nil {
+		log.Printf("[browser] JS render for game %s", internalID)
+		jsHTML, err := f.browser.FetchHTML(u, "")
+		if err == nil && jsHTML != "" {
+			if jsDetail, err := scraper.ScrapeGameDetail(jsHTML); err == nil && jsDetail.HomeScore != nil {
+				detail.HomeScore = jsDetail.HomeScore
+				detail.AwayScore = jsDetail.AwayScore
+				detail.Periods = jsDetail.Periods
+				detail.HomeStats = jsDetail.HomeStats
+				detail.AwayStats = jsDetail.AwayStats
+				log.Printf("[browser] scores found for game %s: %d-%d", internalID, *detail.HomeScore, *detail.AwayScore)
+			}
+		}
+	}
+
 	detail.ID = internalID
 
 	raw2, _ := json.Marshal(detail)
