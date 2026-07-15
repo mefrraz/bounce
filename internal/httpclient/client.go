@@ -3,6 +3,7 @@ package httpclient
 import (
 	"fmt"
 	"io"
+	"strings"
 	"net/http"
 	"time"
 )
@@ -34,6 +35,20 @@ func (c *Client) Get(url string) ([]byte, error) {
 		req.Header.Set("User-Agent", userAgent)
 		req.Header.Set("Accept", "application/json, text/html")
 		req.Header.Set("Referer", "https://www.fpb.pt/")
+		return c.http.Do(req)
+	})
+}
+
+func (c *Client) Post(url, body string) ([]byte, error) {
+	return c.doWithRetry(func() (*http.Response, error) {
+		req, err := http.NewRequest("POST", url, strings.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", userAgent)
+		req.Header.Set("Accept", "application/json, text/html")
+		req.Header.Set("Referer", "https://www.fpb.pt/")
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		return c.http.Do(req)
 	})
 }
