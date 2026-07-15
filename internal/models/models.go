@@ -75,3 +75,13 @@ type PlayerStat struct {
 	Minutes    string `json:"min,omitempty"`
 	Efficiency int    `json:"val,omitempty"`
 }
+
+type Team struct {
+	ID           string `json:"equipa_id"`
+	ClubID       int    `json:"clube_id,omitempty"`
+	Name         string `json:"nome"`
+	Abbreviation string `json:"abreviatura,omitempty"`
+	Logo         string `json:"logo,omitempty"`
+	Photo        string `json:"photo,omitempty"`
+	Association  string `json:"associacao,omitempty"`
+}

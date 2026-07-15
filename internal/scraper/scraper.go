@@ -214,3 +214,194 @@ func atoi(s string) int {
 	v, _ := strconv.Atoi(strings.TrimSpace(s))
 	return v
 }
+
+// ---- Athlete scraping ----
+
+// AthleteData holds the parsed athlete profile from /atletas/{id}/
+type AthleteData struct {
+	Name           string `json:"nome"`
+	Photo          string `json:"foto"`
+	Number         string `json:"numero"`
+	Position       string `json:"posicao"`
+	Club           string `json:"clube"`
+	Nationality    string `json:"nacionalidade"`
+	FlagURL        string `json:"bandeira_url"`
+	LicenseNumber  string `json:"nr_licenca"`
+	BirthDate      string `json:"data_nascimento"`
+	Games          int    `json:"jogos"`
+	Points         int    `json:"pontos"`
+	Rebounds       int    `json:"ressaltos"`
+	Assists        int    `json:"assistencias"`
+}
+
+// ScrapeAthlete parses an athlete detail page.
+func ScrapeAthlete(html string) *AthleteData {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		return nil
+	}
+
+	a := &AthleteData{}
+
+	highlight := doc.Find(".athleteDetailHighlight")
+	a.Photo, _ = highlight.Find(".image img").Attr("src")
+	a.Number = strings.TrimSpace(highlight.Find(".number").Text())
+	a.Name = strings.TrimSpace(highlight.Find(".name").Text())
+	a.Position = strings.TrimSpace(highlight.Find(".position").Text())
+	a.Club = strings.TrimSpace(highlight.Find(".club").Text())
+
+	// Stats table
+	doc.Find("table tr").Each(func(_ int, row *goquery.Selection) {
+		cells := row.Find("td")
+		if cells.Length() < 2 {
+			return
+		}
+		label := strings.TrimSpace(cells.Eq(0).Text())
+		val := strings.TrimSpace(cells.Eq(1).Text())
+		switch {
+		case strings.Contains(label, "Jogos"):
+			a.Games = atoi(val)
+		case strings.Contains(label, "Pontos"):
+			a.Points = atoi(val)
+		case strings.Contains(label, "Ressaltos"):
+			a.Rebounds = atoi(val)
+		case strings.Contains(label, "Assist"):
+			a.Assists = atoi(val)
+		}
+	})
+
+	return a
+}
+
+// ---- Team Detail scraping ----
+
+// TeamDetail holds parsed team page data.
+type TeamDetail struct {
+	Name    string       `json:"nome"`
+	Club    string       `json:"clube"`
+	Photo   string       `json:"foto"`
+	Players []TeamPlayer `json:"jogadores"`
+	Games   []models.Game `json:"jogos"`
+}
+
+// TeamPlayer represents a player in the team roster.
+type TeamPlayer struct {
+	Name   string `json:"nome"`
+	Number int    `json:"numero"`
+	Photo  string `json:"foto"`
+	ID     string `json:"atleta_id"`
+}
+
+// ScrapeTeamDetail parses a team page (/equipa/{id}/).
+func ScrapeTeamDetail(html string) *TeamDetail {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		return nil
+	}
+
+	td := &TeamDetail{}
+	td.Name = strings.TrimSpace(doc.Find("h1").First().Text())
+	td.Photo, _ = doc.Find(".team-photo img").First().Attr("src")
+	td.Club = strings.TrimSpace(doc.Find(".club-name").First().Text())
+
+	// Players
+	doc.Find(".player-card, .jogador-item, table.plantel tbody tr").Each(func(_ int, el *goquery.Selection) {
+		name := strings.TrimSpace(el.Find(".player-name, .nome").First().Text())
+		photo, _ := el.Find("img").First().Attr("src")
+		num := atoi(strings.TrimSpace(el.Find(".player-number, .numero").First().Text()))
+		id, _ := el.Find("a").Attr("href")
+		id = strings.TrimPrefix(id, "/atletas/")
+		id = strings.TrimSuffix(id, "/")
+
+		if name != "" {
+			td.Players = append(td.Players, TeamPlayer{Name: name, Number: num, Photo: photo, ID: id})
+		}
+	})
+
+	// Games (use the same .day-wrapper parser)
+	td.Games = ScrapeGames(html, "AGENDADO")
+
+	return td
+}
+
+// ---- Club Teams scraping (improved) ----
+
+// ScrapeClubTeams parses /equipas/clube_{id}/ to list all teams of a club.
+func ScrapeClubTeams(html string) []models.Team {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		return nil
+	}
+
+	var teams []models.Team
+	doc.Find(".equipa-item, .team-item, a[href*='/equipa/']").Each(func(_ int, el *goquery.Selection) {
+		name := strings.TrimSpace(el.Find(".equipa-nome, .team-name").First().Text())
+		if name == "" {
+			name = strings.TrimSpace(el.Text())
+		}
+		href, _ := el.Attr("href")
+		if href == "" {
+			href, _ = el.Find("a").Attr("href")
+		}
+		id := strings.TrimPrefix(href, "/equipa/")
+		id = strings.TrimSuffix(id, "/")
+		logo, _ := el.Find("img").First().Attr("src")
+		abrev := strings.TrimSpace(el.Find(".equipa-abreviatura, .abrev").First().Text())
+
+		if name != "" && len(name) > 2 {
+			teams = append(teams, models.Team{
+				Name: name, ID: id, Logo: logo, Abbreviation: abrev,
+			})
+		}
+	})
+	return teams
+}
+
+// ---- TugaBasket scraping ----
+
+// TugaBasketStanding holds a TugaBasket standings row.
+type TugaBasketStanding struct {
+	Group       string `json:"grupo"`
+	Team        string `json:"equipa"`
+	Position    int    `json:"posicao"`
+	Games       int    `json:"jogos"`
+	Wins        int    `json:"vitorias"`
+	Losses      int    `json:"derrotas"`
+	Points      int    `json:"pontos"`
+	IsFinished  bool   `json:"is_finished"`
+}
+
+// ScrapeTugaBasketStandings parses the TugaBasket HTML response.
+func ScrapeTugaBasketStandings(html string) []TugaBasketStanding {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		return nil
+	}
+
+	var standings []TugaBasketStanding
+
+	doc.Find(".accordion").Each(func(_ int, acc *goquery.Selection) {
+		groupName := strings.TrimSpace(acc.Find(".accordion-title div").First().Text())
+		acc.Find("table.standings tbody tr, table.table-striped tbody tr").Each(func(_ int, row *goquery.Selection) {
+			cells := row.Find("td")
+			if cells.Length() < 5 {
+				return
+			}
+			posText := strings.TrimSpace(cells.Eq(0).Find("span").First().Text())
+			if posText == "" {
+				posText = strings.TrimSpace(cells.Eq(0).Text())
+			}
+			standings = append(standings, TugaBasketStanding{
+				Group:    groupName,
+				Team:     strings.TrimSpace(cells.Eq(1).Text()),
+				Position: atoi(posText),
+				Games:    atoi(strings.TrimSpace(cells.Eq(2).Text())),
+				Wins:     atoi(strings.TrimSpace(cells.Eq(3).Text())),
+				Losses:   atoi(strings.TrimSpace(cells.Eq(4).Text())),
+				Points:   atoi(strings.TrimSpace(cells.Eq(5).Text())),
+			})
+		})
+	})
+
+	return standings
+}

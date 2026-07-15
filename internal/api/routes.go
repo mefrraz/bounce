@@ -21,6 +21,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/standings/{compID}", h.GetStandings)
 	r.Get("/api/game/{internalID}", h.GetGame)
 	r.Get("/api/competitions", h.GetCompetitions)
+	r.Get("/api/athlete/{id}", h.GetAthlete)
+	r.Get("/api/team/{id}", h.GetTeam)
+	r.Get("/api/club/{clubID}/teams", h.GetClubTeams)
+	r.Get("/api/tugabasket/standings", h.GetTugaBasketStandings)
 }
 
 // GetGames supports:
@@ -97,6 +101,50 @@ func (h *Handler) GetCompetitions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, comps)
+}
+
+func (h *Handler) GetAthlete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	a, err := h.FPB.GetAthlete(id)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, a)
+}
+
+func (h *Handler) GetTeam(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	td, err := h.FPB.GetTeam(id)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, td)
+}
+
+func (h *Handler) GetClubTeams(w http.ResponseWriter, r *http.Request) {
+	clubID := chi.URLParam(r, "clubID")
+	teams, err := h.FPB.GetClubTeams(clubID)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, teams)
+}
+
+func (h *Handler) GetTugaBasketStandings(w http.ResponseWriter, r *http.Request) {
+	compID := r.URL.Query().Get("competitionId")
+	if compID == "" {
+		http.Error(w, `{"error":"competitionId required"}`, http.StatusBadRequest)
+		return
+	}
+	standings, err := h.FPB.GetTugaBasketStandings(compID)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, standings)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

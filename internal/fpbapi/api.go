@@ -193,3 +193,89 @@ func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {
 	}
 	return comps, nil
 }
+
+// GetAthlete fetches and parses an athlete profile from FPB.
+func (f *FPBAPI) GetAthlete(id string) (*scraper.AthleteData, error) {
+	key := cache.CacheKey("athlete", id)
+	if raw, ok := f.cache.Get(key); ok {
+		var a scraper.AthleteData
+		if err := json.Unmarshal(raw, &a); err == nil {
+			return &a, nil
+		}
+	}
+	u := fmt.Sprintf("%s/atletas/%s/", fpbBase, url.PathEscape(id))
+	body, err := f.http.Get(u)
+	if err != nil {
+		return nil, fmt.Errorf("fetch athlete: %w", err)
+	}
+	a := scraper.ScrapeAthlete(string(body))
+	if a == nil {
+		return nil, fmt.Errorf("failed to parse athlete %s", id)
+	}
+	raw2, _ := json.Marshal(a)
+	f.cache.Set(key, raw2, cache.TTLHistorical)
+	return a, nil
+}
+
+// GetTeam fetches and parses a team detail page from FPB.
+func (f *FPBAPI) GetTeam(id string) (*scraper.TeamDetail, error) {
+	key := cache.CacheKey("team", id)
+	if raw, ok := f.cache.Get(key); ok {
+		var td scraper.TeamDetail
+		if err := json.Unmarshal(raw, &td); err == nil {
+			return &td, nil
+		}
+	}
+	u := fmt.Sprintf("%s/equipa/%s/", fpbBase, url.PathEscape(id))
+	body, err := f.http.Get(u)
+	if err != nil {
+		return nil, fmt.Errorf("fetch team: %w", err)
+	}
+	td := scraper.ScrapeTeamDetail(string(body))
+	if td == nil {
+		return nil, fmt.Errorf("failed to parse team %s", id)
+	}
+	raw2, _ := json.Marshal(td)
+	f.cache.Set(key, raw2, cache.TTLHistorical)
+	return td, nil
+}
+
+// GetClubTeams fetches the teams list for a club from FPB.
+func (f *FPBAPI) GetClubTeams(clubID string) ([]models.Team, error) {
+	key := cache.CacheKey("clubteams", clubID)
+	if raw, ok := f.cache.Get(key); ok {
+		var teams []models.Team
+		if err := json.Unmarshal(raw, &teams); err == nil {
+			return teams, nil
+		}
+	}
+	u := fmt.Sprintf("%s/equipas/clube_%s/", fpbBase, clubID)
+	body, err := f.http.Get(u)
+	if err != nil {
+		return nil, fmt.Errorf("fetch club teams: %w", err)
+	}
+	teams := scraper.ScrapeClubTeams(string(body))
+	raw2, _ := json.Marshal(teams)
+	f.cache.Set(key, raw2, cache.TTLHistorical)
+	return teams, nil
+}
+
+// GetTugaBasketStandings fetches standings from TugaBasket.
+func (f *FPBAPI) GetTugaBasketStandings(competitionID string) ([]scraper.TugaBasketStanding, error) {
+	key := cache.CacheKey("tugabasket", competitionID)
+	if raw, ok := f.cache.Get(key); ok {
+		var s []scraper.TugaBasketStanding
+		if err := json.Unmarshal(raw, &s); err == nil {
+			return s, nil
+		}
+	}
+	u := fmt.Sprintf("https://resultados.tugabasket.com/getCompetitionDetails?competitionId=%s", competitionID)
+	body, err := f.http.Get(u)
+	if err != nil {
+		return nil, fmt.Errorf("fetch tugabasket: %w", err)
+	}
+	standings := scraper.ScrapeTugaBasketStandings(string(body))
+	raw2, _ := json.Marshal(standings)
+	f.cache.Set(key, raw2, cache.TTLStandings)
+	return standings, nil
+}
