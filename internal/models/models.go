@@ -50,4 +50,28 @@ type Competition struct {
 
 type GameDetail struct {
 	Game
+	Periods    []Period     `json:"periodos,omitempty"`
+	HomeStats  []PlayerStat `json:"stats_casa,omitempty"`
+	AwayStats  []PlayerStat `json:"stats_fora,omitempty"`
+}
+
+type Period struct {
+	Number    int `json:"periodo"`
+	HomeScore int `json:"casa"`
+	AwayScore int `json:"fora"`
+}
+
+type PlayerStat struct {
+	PlayerID   int    `json:"atleta_id"`
+	Name       string `json:"nome"`
+	Number     int    `json:"numero,omitempty"`
+	Points     int    `json:"pts"`
+	Rebounds   int    `json:"reb,omitempty"`
+	Assists    int    `json:"ast,omitempty"`
+	Blocks     int    `json:"blk,omitempty"`
+	Steals     int    `json:"stl,omitempty"`
+	Turnovers  int    `json:"dl,omitempty"`
+	Fouls      int    `json:"fp,omitempty"`
+	Minutes    string `json:"min,omitempty"`
+	Efficiency int    `json:"val,omitempty"`
 }

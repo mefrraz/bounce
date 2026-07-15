@@ -23,23 +23,51 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/competitions", h.GetCompetitions)
 }
 
+// GetGames supports:
+//   ?club=ID&season=2025/2026&category=Senior&gender=masculino
+//   ?competition=ID&page=calendario|resultados
 func (h *Handler) GetGames(w http.ResponseWriter, r *http.Request) {
-	date := r.URL.Query().Get("date")
-	competition := r.URL.Query().Get("competition")
-	if date == "" {
-		http.Error(w, `{"error":"date required"}`, http.StatusBadRequest)
+	q := r.URL.Query()
+	club := q.Get("club")
+	competition := q.Get("competition")
+
+	if club != "" {
+		season := q.Get("season")
+		if season == "" {
+			season = "2025/2026"
+		}
+		category := q.Get("category")
+		if category == "" {
+			category = "Senior"
+		}
+		gender := q.Get("gender")
+		if gender == "" {
+			gender = "masculino"
+		}
+		games, err := h.FPB.GetGamesByClub(club, season, category, gender)
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, games)
 		return
 	}
-	if competition == "" {
-		writeJSON(w, http.StatusOK, []interface{}{})
+
+	if competition != "" {
+		page := q.Get("page")
+		if page == "" {
+			page = "calendario"
+		}
+		games, err := h.FPB.GetGamesByCompetition(competition, page)
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, games)
 		return
 	}
-	games, err := h.FPB.GetGames(competition, date)
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, games)
+
+	writeJSON(w, http.StatusOK, []interface{}{})
 }
 
 func (h *Handler) GetStandings(w http.ResponseWriter, r *http.Request) {

@@ -47,7 +47,13 @@ func main() {
 	hub := ws.NewHub()
 
 	sched := scheduler.New(
-		func(internalID string) (*models.Game, error) { return fpb.GetGame(internalID) },
+		func(internalID string) (*models.Game, error) {
+			detail, err := fpb.GetGame(internalID)
+			if err != nil {
+				return nil, err
+			}
+			return &detail.Game, nil
+		},
 		func() ([]models.Game, error) {
 			today := time.Now().Format("2006-01-02")
 			log.Printf("Daily fetch: %s (no competitions configured)", today)

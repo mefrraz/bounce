@@ -131,7 +131,64 @@ func ScrapeGames(html, defaultStatus string) []models.Game {
 	return games
 }
 
-func ScrapeGameDetail(html string) (*models.GameDetail, error) { return nil, nil }
+func ScrapeGameDetail(html string) (*models.GameDetail, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		return nil, err
+	}
+
+	detail := &models.GameDetail{}
+
+	// Teams
+	detail.HomeTeam = strings.TrimSpace(doc.Find(".equipa-casa .nome").First().Text())
+	if detail.HomeTeam == "" {
+		detail.HomeTeam = strings.TrimSpace(doc.Find("h2.home-team").First().Text())
+	}
+	detail.AwayTeam = strings.TrimSpace(doc.Find(".equipa-fora .nome").First().Text())
+	if detail.AwayTeam == "" {
+		detail.AwayTeam = strings.TrimSpace(doc.Find("h2.away-team").First().Text())
+	}
+	detail.HomeLogo, _ = doc.Find(".equipa-casa img").First().Attr("src")
+	detail.AwayLogo, _ = doc.Find(".equipa-fora img").First().Attr("src")
+
+	// Score
+	scoreStr := strings.TrimSpace(doc.Find(".resultado-final").First().Text())
+	if scoreStr == "" {
+		scoreStr = strings.TrimSpace(doc.Find(".final-score").First().Text())
+	}
+	parts := strings.Split(scoreStr, "-")
+	if len(parts) == 2 {
+		hs := atoi(strings.TrimSpace(parts[0]))
+		as := atoi(strings.TrimSpace(parts[1]))
+		detail.HomeScore = &hs
+		detail.AwayScore = &as
+	}
+
+	// Date and venue
+	detail.Date = ParseDatePt(strings.TrimSpace(doc.Find(".data-jogo").First().Text()))
+	detail.Venue = strings.TrimSpace(doc.Find(".pavilhao-jogo").First().Text())
+	detail.Status = "FINALIZADO"
+
+	// Periods
+	doc.Find("table.ficha-tabela tr").Each(func(_ int, row *goquery.Selection) {
+		cells := row.Find("td")
+		if cells.Length() >= 4 {
+			periodLabel := strings.TrimSpace(cells.Eq(0).Text())
+			if strings.Contains(periodLabel, "Q") || strings.Contains(periodLabel, "P") {
+				num := atoi(strings.TrimLeft(periodLabel, "QP"))
+				hs := atoi(strings.TrimSpace(cells.Eq(1).Text()))
+				as := atoi(strings.TrimSpace(cells.Eq(2).Text()))
+				if num > 0 {
+					detail.Periods = append(detail.Periods, models.Period{
+						Number: num, HomeScore: hs, AwayScore: as,
+					})
+				}
+			}
+		}
+	})
+
+	return detail, nil
+}
 
 func ExtractFaseIDs(html string) []struct{ ID, Name string } {
 	re := regexp.MustCompile(`<li[^>]*class="[^"]*option[^"]*"[^>]*tag="([^"]*)"[^>]*value="([^"]+)"`)
