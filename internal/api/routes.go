@@ -58,16 +58,7 @@ func (h *Handler) GetGames(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if competition != "" {
-		page := q.Get("page")
-		if page == "" {
-			page = "calendario"
-		}
-		games, err := h.FPB.GetGamesByCompetition(competition, page)
-		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-			return
-		}
-		writeJSON(w, http.StatusOK, games)
+		writeJSON(w, http.StatusOK, []interface{}{})
 		return
 	}
 

@@ -12,7 +12,6 @@ import (
 	"github.com/go-chi/cors"
 
 	apihandler "github.com/mefrraz/bounce/internal/api"
-	"github.com/mefrraz/bounce/internal/browser"
 	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/fpbapi"
 	"github.com/mefrraz/bounce/internal/httpclient"
@@ -44,8 +43,8 @@ func main() {
 	client := httpclient.New()
 	defer client.Stop()
 
-	br, _ := browser.NewClient()
-	fpb := fpbapi.New(client, store, br)
+	
+	fpb := fpbapi.New(client, store)
 	hub := ws.NewHub()
 
 	sched := scheduler.New(

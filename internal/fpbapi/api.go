@@ -3,12 +3,11 @@ package fpbapi
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"log"
+	"net/url"
 	"regexp"
 	"strings"
 
-	"github.com/mefrraz/bounce/internal/browser"
 	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/httpclient"
 	"github.com/mefrraz/bounce/internal/models"
@@ -18,13 +17,12 @@ import (
 const fpbBase = "https://www.fpb.pt"
 
 type FPBAPI struct {
-	http    *httpclient.Client
-	cache   *cache.Store
-	browser *browser.Client
+	http  *httpclient.Client
+	cache *cache.Store
 }
 
-func New(c *httpclient.Client, s *cache.Store, b *browser.Client) *FPBAPI {
-	return &FPBAPI{http: c, cache: s, browser: b}
+func New(c *httpclient.Client, s *cache.Store) *FPBAPI {
+	return &FPBAPI{http: c, cache: s}
 }
 
 func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
@@ -55,8 +53,7 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 
 	p := url.Values{}
 	p.Set("action", "get_more_days")
-	p.Set("epoca", season)
-	p.Set("clube", clubID)
+	p.Set("epoca", season); p.Set("clube", clubID)
 	p.Set("period[time_option]", "fromInit")
 	p.Set("period[from_date]", yearStart+"/09/01")
 	p.Set("period[to_date]", yearEnd+"/06/30")
@@ -73,45 +70,38 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	all := scraper.ScrapeGames(h.String(), "FINALIZADO")
 	log.Printf("[ajax] %d games for club %s season %s", len(all), clubID, season)
 
-	// Enrich with TugaBasket scores (cross-reference by date+team)
-	tbGames := f.fetchTugaScores(clubID, season)
+	// Enrich with TugaBasket scores
+	tbGames := f.fetchTugaScores()
 	for i := range all {
-		if all[i].HomeScore != nil { continue } // already has scores
+		if all[i].HomeScore != nil { continue }
 		for _, tb := range tbGames {
 			if matchTeam(all[i].HomeTeam, tb.HomeTeam) && matchTeam(all[i].AwayTeam, tb.AwayTeam) && all[i].Date == tb.Date {
 				s := strings.Split(tb.Score, ":")
 				if len(s) == 2 {
 					hs, as := atoi2(s[0]), atoi2(s[1])
-					all[i].HomeScore = &hs
-					all[i].AwayScore = &as
-					all[i].Status = "FINALIZADO"
+					all[i].HomeScore = &hs; all[i].AwayScore = &as; all[i].Status = "FINALIZADO"
 				}
 				break
 			}
 		}
 	}
-
 	raw2, _ := json.Marshal(all)
 	f.cache.Set(key, raw2, cache.TTLToday)
 	return all, nil
 }
 
-func (f *FPBAPI) fetchTugaScores(clubID, season string) []scraper.TBGameResult {
-	// Fetch known competitions and cross-reference
-	compIDs := []string{"10902","10903","10904","10906","10907"}
+func (f *FPBAPI) fetchTugaScores() []scraper.TBGameResult {
 	var all []scraper.TBGameResult
-	for _, cid := range compIDs {
+	for _, cid := range []string{"10902","10903","10904","10906","10907"} {
 		body, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/getCompetitionDetails?competitionId=%s", cid))
 		if err != nil { continue }
-		results := scraper.ScrapeTugaBasketGames(string(body))
-		all = append(all, results...)
+		all = append(all, scraper.ScrapeTugaBasketGames(string(body))...)
 	}
 	return all
 }
 
 func matchTeam(a, b string) bool {
-	a = strings.ToUpper(strings.TrimSpace(a))
-	b = strings.ToUpper(strings.TrimSpace(b))
+	a, b = strings.ToUpper(strings.TrimSpace(a)), strings.ToUpper(strings.TrimSpace(b))
 	if a == b { return true }
 	if len(a) > 5 && len(b) > 5 && (strings.Contains(a, b) || strings.Contains(b, a)) { return true }
 	return false
@@ -120,9 +110,7 @@ func matchTeam(a, b string) bool {
 func atoi2(s string) int {
 	s = strings.TrimSpace(s)
 	if s == "" || s == "-" { return 0 }
-	v := 0
-	for _, c := range s { v = v*10 + int(c-'0') }
-	return v
+	v := 0; for _, c := range s { v = v*10 + int(c-'0') }; return v
 }
 
 func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {
@@ -174,6 +162,7 @@ func (f *FPBAPI) GetTeam(id string) (*scraper.TeamDetail, error) {
 	body, err := f.http.Get(fmt.Sprintf("%s/equipa/%s/", fpbBase, url.PathEscape(id)))
 	if err != nil { return nil, err }
 	td := scraper.ScrapeTeamDetail(string(body))
+	if td == nil { return nil, fmt.Errorf("failed to parse team %s", id) }
 	raw2, _ := json.Marshal(td)
 	f.cache.Set(key, raw2, cache.TTLHistorical)
 	return td, nil
@@ -193,6 +182,21 @@ func (f *FPBAPI) GetClubTeams(clubID string) ([]models.Team, error) {
 	return teams, nil
 }
 
+func (f *FPBAPI) GetStandings(compID string) ([]models.Standing, error) {
+	key := cache.CacheKey("standings", compID)
+	if raw, ok := f.cache.Get(key); ok {
+		var s []models.Standing
+		if err := json.Unmarshal(raw, &s); err == nil { return s, nil }
+	}
+	// Fetch classification page HTML and parse h5 elements (Dribly approach)
+	body, err := f.http.Get(fmt.Sprintf("%s/classificacao/%s", fpbBase, compID))
+	if err != nil { return nil, err }
+	standings := scraper.ScrapeStandings(string(body))
+	raw2, _ := json.Marshal(standings)
+	f.cache.Set(key, raw2, cache.TTLStandings)
+	return standings, nil
+}
+
 func (f *FPBAPI) GetTugaBasketStandings(competitionID string) ([]scraper.TugaBasketStanding, error) {
 	key := cache.CacheKey("tugabasket", competitionID)
 	if raw, ok := f.cache.Get(key); ok {
@@ -206,20 +210,3 @@ func (f *FPBAPI) GetTugaBasketStandings(competitionID string) ([]scraper.TugaBas
 	f.cache.Set(key, raw2, cache.TTLStandings)
 	return s, nil
 }
-
-func (f *FPBAPI) GetStandings(compID string) ([]models.Standing, error) {
-	key := cache.CacheKey("standings", compID)
-	if raw, ok := f.cache.Get(key); ok {
-		var s []models.Standing
-		if err := json.Unmarshal(raw, &s); err == nil { return s, nil }
-	}
-	body, err := f.http.Get(fmt.Sprintf("https://sav2.fpb.pt/api/classificacao/%s", compID))
-	if err != nil { return nil, err }
-	var s []models.Standing
-	json.Unmarshal(body, &s)
-	raw2, _ := json.Marshal(s)
-	f.cache.Set(key, raw2, cache.TTLStandings)
-	return s, nil
-}
-
-func (f *FPBAPI) GetGamesByCompetition(compID, page string) ([]models.Game, error) { return nil, fmt.Errorf("wip") }
