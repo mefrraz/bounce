@@ -72,9 +72,57 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	}
 	all := scraper.ScrapeGames(h.String(), "FINALIZADO")
 	log.Printf("[ajax] %d games for club %s season %s", len(all), clubID, season)
+
+	// Enrich with TugaBasket scores (cross-reference by date+team)
+	tbGames := f.fetchTugaScores(clubID, season)
+	for i := range all {
+		if all[i].HomeScore != nil { continue } // already has scores
+		for _, tb := range tbGames {
+			if matchTeam(all[i].HomeTeam, tb.HomeTeam) && matchTeam(all[i].AwayTeam, tb.AwayTeam) && all[i].Date == tb.Date {
+				s := strings.Split(tb.Score, ":")
+				if len(s) == 2 {
+					hs, as := atoi2(s[0]), atoi2(s[1])
+					all[i].HomeScore = &hs
+					all[i].AwayScore = &as
+					all[i].Status = "FINALIZADO"
+				}
+				break
+			}
+		}
+	}
+
 	raw2, _ := json.Marshal(all)
 	f.cache.Set(key, raw2, cache.TTLToday)
 	return all, nil
+}
+
+func (f *FPBAPI) fetchTugaScores(clubID, season string) []scraper.TBGameResult {
+	// Fetch known competitions and cross-reference
+	compIDs := []string{"10902","10903","10904","10906","10907"}
+	var all []scraper.TBGameResult
+	for _, cid := range compIDs {
+		body, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/getCompetitionDetails?competitionId=%s", cid))
+		if err != nil { continue }
+		results := scraper.ScrapeTugaBasketGames(string(body))
+		all = append(all, results...)
+	}
+	return all
+}
+
+func matchTeam(a, b string) bool {
+	a = strings.ToUpper(strings.TrimSpace(a))
+	b = strings.ToUpper(strings.TrimSpace(b))
+	if a == b { return true }
+	if len(a) > 5 && len(b) > 5 && (strings.Contains(a, b) || strings.Contains(b, a)) { return true }
+	return false
+}
+
+func atoi2(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "-" { return 0 }
+	v := 0
+	for _, c := range s { v = v*10 + int(c-'0') }
+	return v
 }
 
 func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {

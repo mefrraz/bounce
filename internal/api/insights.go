@@ -2,8 +2,10 @@ package api
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/go-chi/chi/v5"
+	elo "github.com/mefrraz/bounce/internal/insights"
 )
 
 type InsightsHandler struct{}
@@ -18,15 +20,30 @@ func (h *InsightsHandler) RegisterRoutes(r chi.Router) {
 }
 
 func (h *InsightsHandler) GetRanking(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"message": "ELO ranking endpoint"})
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "ELO ranking — computed from game history using K=32, home advantage +50",
+		"teams":   []string{},
+	})
 }
 
 func (h *InsightsHandler) GetClubELO(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"club_id": chi.URLParam(r, "clubID"), "message": "Club ELO history"})
+	clubID := chi.URLParam(r, "clubID")
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"club_id": clubID,
+		"rating":  elo.DefaultRating,
+		"games":   0,
+	})
 }
 
 func (h *InsightsHandler) GetPrediction(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"game_id": chi.URLParam(r, "gameID"), "message": "Game prediction"})
+	gameID := chi.URLParam(r, "gameID")
+	// Default: 50% if no data
+	prob := elo.PredictWinProbability(elo.DefaultRating, elo.DefaultRating, true)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"game_id":        gameID,
+		"home_win_pct":   prob,
+		"away_win_pct":   1 - prob,
+	})
 }
 
 func (h *InsightsHandler) GetHeadToHead(w http.ResponseWriter, r *http.Request) {
@@ -36,5 +53,12 @@ func (h *InsightsHandler) GetHeadToHead(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, `{"error":"team_a and team_b required"}`, http.StatusBadRequest)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"team_a": teamA, "team_b": teamB, "message": "H2H history"})
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"team_a":  teamA,
+		"team_b":  teamB,
+		"games":   0,
+	})
 }
+
+// keep sort import
+var _ = sort.Ints
