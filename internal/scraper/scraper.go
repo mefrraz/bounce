@@ -90,45 +90,114 @@ func ScrapeGames(html, defaultStatus string) []models.Game {
 		return nil
 	}
 	var games []models.Game
+
 	doc.Find(".day-wrapper").Each(func(_ int, dayEl *goquery.Selection) {
 		dateStr := strings.TrimSpace(dayEl.Find("h3.date").Text())
 		isoDate := ParseDatePt(dateStr)
 		if isoDate == "" {
 			return
 		}
+
 		dayEl.Find("a.game-wrapper-a").Each(func(_ int, el *goquery.Selection) {
 			href, _ := el.Attr("href")
 			id := extractInternalID(href)
-			homeTeam := strings.TrimSpace(el.Find(".equipa-casa .nome").Text())
-			awayTeam := strings.TrimSpace(el.Find(".equipa-fora .nome").Text())
-			timeStr := strings.TrimSpace(el.Find(".hora").Text())
-			homeLogo, _ := el.Find(".equipa-casa img").Attr("src")
-			awayLogo, _ := el.Find(".equipa-fora img").Attr("src")
-			homeScoreStr := strings.TrimSpace(el.Find(".resultado-casa").Text())
-			awayScoreStr := strings.TrimSpace(el.Find(".resultado-fora").Text())
-			venue := strings.TrimSpace(el.Find(".local").Text())
-			journey := strings.TrimSpace(el.Find(".jornada").Text())
-			status := strings.TrimSpace(el.Find(".estado").Text())
-			if status == "" {
-				status = defaultStatus
+
+			// Team names: Dribly uses .team-container .fullName or .sigla
+			containers := el.Find(".team-container")
+			homeName := ""
+			awayName := ""
+			if containers.Length() >= 2 {
+				homeName = strings.TrimSpace(containers.Eq(0).Find(".fullName").First().Text())
+				if homeName == "" {
+					homeName = strings.TrimSpace(containers.Eq(0).Find(".sigla").First().Text())
+				}
+				awayName = strings.TrimSpace(containers.Eq(1).Find(".fullName").First().Text())
+				if awayName == "" {
+					awayName = strings.TrimSpace(containers.Eq(1).Find(".sigla").First().Text())
+				}
 			}
+			if homeName == "" && awayName == "" {
+				return
+			}
+
+			// Logos: Dribly uses .team-container .image-container img
+			homeLogo, _ := containers.Eq(0).Find(".image-container img").Attr("src")
+			awayLogo, _ := containers.Eq(1).Find(".image-container img").Attr("src")
+
+			// Scores: Dribly uses .results_wrapper h3.results_text
 			var hs, as *int
-			if v := atoi(homeScoreStr); homeScoreStr != "" && homeScoreStr != "-" {
-				hs = &v
+			status := defaultStatus
+			resultsWrapper := el.Find(".results_wrapper")
+			if resultsWrapper.Length() > 0 {
+				scoreEls := resultsWrapper.Find("h3.results_text")
+				if scoreEls.Length() >= 2 {
+					status = "FINALIZADO"
+					v1 := atoi(strings.TrimSpace(scoreEls.Eq(0).Text()))
+					v2 := atoi(strings.TrimSpace(scoreEls.Eq(1).Text()))
+					hs = &v1
+					as = &v2
+				}
 			}
-			if v := atoi(awayScoreStr); awayScoreStr != "" && awayScoreStr != "-" {
-				as = &v
+
+			// Time or score fallback: Dribly uses .hour h3
+			hourEl := el.Find(".hour h3")
+			hourText := strings.TrimSpace(hourEl.Text())
+			timeStr := ""
+			if status == "AGENDADO" && strings.Contains(hourText, "-") && !strings.Contains(hourText, "H") {
+				parts := strings.Split(hourText, "-")
+				if len(parts) == 2 {
+					s1 := atoi(strings.TrimSpace(parts[0]))
+					s2 := atoi(strings.TrimSpace(parts[1]))
+					if s1 > 0 || s2 > 0 {
+						status = "FINALIZADO"
+						hs = &s1
+						as = &s2
+					}
+				}
 			}
+			if status == "AGENDADO" {
+				timeStr = strings.ReplaceAll(hourText, "H", ":")
+				timeStr = strings.ReplaceAll(timeStr, " ", "")
+			}
+
+			// Venue: Dribly uses .location-wrapper b
+			locEl := el.Find(".location-wrapper b")
+			venue := strings.TrimSpace(locEl.Text())
+
+			// Competition name
+			compEl := el.Find(".competition span")
+			compText := strings.TrimSpace(compEl.Text())
+			compName := ""
+			compCategory := ""
+			if strings.Contains(compText, "|") {
+				parts := strings.SplitN(compText, "|", 2)
+				compCategory = strings.TrimSpace(parts[0])
+				compName = strings.TrimSpace(parts[1])
+			} else {
+				compName = compText
+			}
+
+			if id == "" {
+				id = isoDate + "-" + slugify(homeName) + "-" + slugify(awayName)
+			}
+
 			games = append(games, models.Game{
 				ID: id, Date: isoDate, Time: timeStr,
-				HomeTeam: homeTeam, AwayTeam: awayTeam,
+				HomeTeam: homeName, AwayTeam: awayName,
 				HomeScore: hs, AwayScore: as,
-				Venue: venue, Journey: journey, Status: status,
+				Venue: venue, Status: status,
 				HomeLogo: homeLogo, AwayLogo: awayLogo,
+				Competition: compName, Category: compCategory,
 			})
 		})
 	})
 	return games
+}
+
+func slugify(s string) string {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "-")
+	return s
 }
 
 func ScrapeGameDetail(html string) (*models.GameDetail, error) {
@@ -139,53 +208,58 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 
 	detail := &models.GameDetail{}
 
-	// Teams
-	detail.HomeTeam = strings.TrimSpace(doc.Find(".equipa-casa .nome").First().Text())
-	if detail.HomeTeam == "" {
-		detail.HomeTeam = strings.TrimSpace(doc.Find("h2.home-team").First().Text())
-	}
-	detail.AwayTeam = strings.TrimSpace(doc.Find(".equipa-fora .nome").First().Text())
-	if detail.AwayTeam == "" {
-		detail.AwayTeam = strings.TrimSpace(doc.Find("h2.away-team").First().Text())
-	}
-	detail.HomeLogo, _ = doc.Find(".equipa-casa img").First().Attr("src")
-	detail.AwayLogo, _ = doc.Find(".equipa-fora img").First().Attr("src")
-
-	// Score
-	scoreStr := strings.TrimSpace(doc.Find(".resultado-final").First().Text())
-	if scoreStr == "" {
-		scoreStr = strings.TrimSpace(doc.Find(".final-score").First().Text())
-	}
-	parts := strings.Split(scoreStr, "-")
-	if len(parts) == 2 {
-		hs := atoi(strings.TrimSpace(parts[0]))
-		as := atoi(strings.TrimSpace(parts[1]))
-		detail.HomeScore = &hs
-		detail.AwayScore = &as
-	}
-
-	// Date and venue
-	detail.Date = ParseDatePt(strings.TrimSpace(doc.Find(".data-jogo").First().Text()))
-	detail.Venue = strings.TrimSpace(doc.Find(".pavilhao-jogo").First().Text())
-	detail.Status = "FINALIZADO"
-
-	// Periods
-	doc.Find("table.ficha-tabela tr").Each(func(_ int, row *goquery.Selection) {
-		cells := row.Find("td")
-		if cells.Length() >= 4 {
-			periodLabel := strings.TrimSpace(cells.Eq(0).Text())
-			if strings.Contains(periodLabel, "Q") || strings.Contains(periodLabel, "P") {
-				num := atoi(strings.TrimLeft(periodLabel, "QP"))
-				hs := atoi(strings.TrimSpace(cells.Eq(1).Text()))
-				as := atoi(strings.TrimSpace(cells.Eq(2).Text()))
-				if num > 0 {
-					detail.Periods = append(detail.Periods, models.Period{
-						Number: num, HomeScore: hs, AwayScore: as,
-					})
-				}
+	// Team names: try multiple sources
+	// 1. From <title> tag (regex backup)
+	titleRe := regexp.MustCompile(`<title>\s*([^<]+)\s*</title>`)
+	if m := titleRe.FindStringSubmatch(html); len(m) > 1 {
+		titleText := strings.TrimSpace(m[1])
+		// "SL Benfica  vs. Futebol Clube do Porto  | Liga Betclic Masculina"
+		if idx := strings.Index(titleText, "|"); idx > 0 {
+			teamPart := strings.TrimSpace(titleText[:idx])
+			vsParts := strings.SplitN(teamPart, " vs. ", 2)
+			if len(vsParts) != 2 {
+				vsParts = strings.SplitN(teamPart, " - ", 2)
+			}
+			if len(vsParts) == 2 {
+				detail.HomeTeam = strings.TrimSpace(vsParts[0])
+				detail.AwayTeam = strings.TrimSpace(vsParts[1])
 			}
 		}
+	}
+
+	// 2. From team-info.team links
+	teamInfos := doc.Find("a.team-info.team")
+	if teamInfos.Length() >= 2 {
+		detail.HomeLogo, _ = teamInfos.Eq(0).Find("img").Attr("src")
+		detail.AwayLogo, _ = teamInfos.Eq(1).Find("img").Attr("src")
+		// Club name as fallback for team name
+		if detail.HomeTeam == "" {
+			detail.HomeTeam = strings.TrimSpace(teamInfos.Eq(0).Find(".club").First().Text())
+		}
+		if detail.AwayTeam == "" {
+			detail.AwayTeam = strings.TrimSpace(teamInfos.Eq(1).Find(".club").First().Text())
+		}
+	}
+
+	// Score: try various places
+	// Look for score in the page
+	doc.Find(".results_text").Each(func(_ int, el *goquery.Selection) {
+		val := atoi(strings.TrimSpace(el.Text()))
+		if detail.HomeScore == nil {
+			detail.HomeScore = &val
+		} else if detail.AwayScore == nil {
+			detail.AwayScore = &val
+		}
 	})
+	if detail.HomeScore != nil || detail.AwayScore != nil {
+		detail.Status = "FINALIZADO"
+	}
+
+	// Venue: try location-wrapper
+	detail.Venue = strings.TrimSpace(doc.Find(".location-wrapper b").First().Text())
+
+	// Date
+	detail.Date = ParseDatePt(strings.TrimSpace(doc.Find("h3.date").First().Text()))
 
 	return detail, nil
 }
