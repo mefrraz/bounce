@@ -41,46 +41,67 @@ func ParseDatePt(s string) string {
 }
 
 func ScrapeStandings(html string) []models.Standing {
-	rows := strings.Split(html, `<div class="team-row"`)
-	if len(rows) < 2 {
-		rows = strings.Split(html, `<div class="row team-row"`)
-	}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil { return nil }
+
 	var standings []models.Standing
-	reH5 := regexp.MustCompile(`<h5[^>]*>(?:\s*<(?:b|strong)>)?([^<]*?)(?:<\/(?:b|strong)>)?\s*<\/h5>`)
-	for i := 1; i < len(rows); i++ {
-		row := rows[i]
-		nameMatch := regexp.MustCompile(`<h5[^>]*>([^<]+)<\/h5>`).FindStringSubmatch(row)
-		if len(nameMatch) < 2 {
-			continue
-		}
-		name := strings.TrimSpace(nameMatch[1])
-		if len(name) < 3 {
-			continue
-		}
-		h5s := reH5.FindAllStringSubmatch(row, -1)
+	doc.Find(".team-row").Each(func(_ int, row *goquery.Selection) {
+		// Position: .number h5
+		posText := strings.TrimSpace(row.Find(".number h5").First().Text())
+		if posText == "" { return }
+		pos := atoi(posText)
+		if pos == 0 { return }
+
+		// Team name: a[href*='/equipa/'] inside .team-wrapper
+		name := strings.TrimSpace(row.Find("a[href*='/equipa/']").First().Text())
+		if name == "" { return }
+
+		// Logo: .image-container img
+		logo, _ := row.Find(".image-container img").Attr("src")
+
+		// Stats: all h5 elements in order (J, V, D, FC, PM, PS, DIF, PTS)
 		var stats []string
-		for _, h := range h5s {
-			stats = append(stats, strings.TrimSpace(h[1]))
+		row.Find("h5").Each(func(_ int, h5 *goquery.Selection) {
+			stats = append(stats, strings.TrimSpace(h5.Text()))
+		})
+
+		s := models.Standing{Position: pos, Team: name, Logo: logo}
+		for _, st := range stats {
+			switch {
+			case st == "J": case st == "V": case st == "D": case st == "FC":
+			case st == "PM": case st == "PS": case st == "DIF": case st == "PTS":
+				// skip headers
+			default:
+				switch len(standings) {
+				case 0: // already set position
+				}
+			}
 		}
-		if len(stats) < 8 {
-			continue
+		// Stats order: h5[0]=pos(n), h5[1]=name, then J,V,D,FC,PM,PS,DIF,PTS
+		h5s := []string{}
+		row.Find("h5").Each(func(_ int, h5 *goquery.Selection) {
+			t := strings.TrimSpace(h5.Text())
+			if t != "J" && t != "V" && t != "D" && t != "FC" && t != "PM" && t != "PS" && t != "DIF" && t != "PTS" {
+				h5s = append(h5s, t)
+			}
+		})
+		// Position is first h5 in .number, name is in link, remaining h5s are stats
+		// After the position h5, remaining order: J, V, D, FC, PM, PS, DIF, PTS
+		statsOnly := []string{}
+		row.Find(".col-2 h5, .col-1 h5, .col-md-1 h5, .col-2.col-md-1 h5").Each(func(_ int, h5 *goquery.Selection) {
+			statsOnly = append(statsOnly, strings.TrimSpace(h5.Text()))
+		})
+		if len(statsOnly) >= 8 {
+			s.Played = atoi(statsOnly[0]); s.Won = atoi(statsOnly[1]); s.Lost = atoi(statsOnly[2])
+			s.Points = atoi(statsOnly[7])
+			v := atoi(statsOnly[4]); s.PointsFor = &v
+			v2 := atoi(statsOnly[5]); s.PointsAgainst = &v2
 		}
-		logo := ""
-		if lm := regexp.MustCompile(`<img[^>]*src="([^"]*)"`).FindStringSubmatch(row); len(lm) > 1 {
-			logo = lm[1]
-		}
-		s := models.Standing{
-			Position: atoi(stats[0]), Team: name, Logo: logo,
-			Played: atoi(stats[3]), Won: atoi(stats[4]), Lost: atoi(stats[5]), Points: atoi(stats[10]),
-		}
-		if len(stats) > 7 {
-			v := atoi(stats[7]); s.PointsFor = &v
-		}
-		if len(stats) > 8 {
-			v := atoi(stats[8]); s.PointsAgainst = &v
-		}
+		_ = h5s // keep for reference
+
 		standings = append(standings, s)
-	}
+	})
+
 	return standings
 }
 

@@ -21,9 +21,7 @@ type FPBAPI struct {
 	cache *cache.Store
 }
 
-func New(c *httpclient.Client, s *cache.Store) *FPBAPI {
-	return &FPBAPI{http: c, cache: s}
-}
+func New(c *httpclient.Client, s *cache.Store) *FPBAPI { return &FPBAPI{http: c, cache: s} }
 
 func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 	key := cache.CacheKey("game", internalID)
@@ -31,8 +29,7 @@ func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 		var g models.GameDetail
 		if err := json.Unmarshal(raw, &g); err == nil { return &g, nil }
 	}
-	u := fmt.Sprintf("%s/ficha-de-jogo?internalID=%s", fpbBase, url.PathEscape(internalID))
-	body, err := f.http.Get(u)
+	body, err := f.http.Get(fmt.Sprintf("%s/ficha-de-jogo?internalID=%s", fpbBase, url.PathEscape(internalID)))
 	if err != nil { return nil, err }
 	detail, _ := scraper.ScrapeGameDetail(string(body))
 	detail.ID = internalID
@@ -44,19 +41,18 @@ func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]models.Game, error) {
 	key := cache.CacheKey("games", "club", clubID, season)
 	if raw, ok := f.cache.Get(key); ok {
-		var cached []models.Game
-		if err := json.Unmarshal(raw, &cached); err == nil { return cached, nil }
+		var c []models.Game
+		if err := json.Unmarshal(raw, &c); err == nil { return c, nil }
 	}
 	parts := strings.Split(season, "/")
 	if len(parts) != 2 { return nil, fmt.Errorf("invalid season: %s", season) }
-	yearStart, yearEnd := parts[0], parts[1]
-
+	ys, ye := parts[0], parts[1]
 	p := url.Values{}
 	p.Set("action", "get_more_days")
 	p.Set("epoca", season); p.Set("clube", clubID)
 	p.Set("period[time_option]", "fromInit")
-	p.Set("period[from_date]", yearStart+"/09/01")
-	p.Set("period[to_date]", yearEnd+"/06/30")
+	p.Set("period[from_date]", ys+"/09/01")
+	p.Set("period[to_date]", ye+"/06/30")
 	body, err := f.http.Get(fpbBase + "/wp-admin/admin-ajax.php?" + p.Encode())
 	if err != nil { return nil, err }
 	var ar struct{ Result interface{}; Hasmore bool }
@@ -68,15 +64,13 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 		for _, item := range v { if s, ok := item.(string); ok { h.WriteString(s) } }
 	}
 	all := scraper.ScrapeGames(h.String(), "FINALIZADO")
-	log.Printf("[ajax] %d games for club %s season %s", len(all), clubID, season)
-
-	// Enrich with TugaBasket scores
-	tbGames := f.fetchTugaScores()
+	tb := f.fetchTugaScores()
 	for i := range all {
 		if all[i].HomeScore != nil { continue }
-		for _, tb := range tbGames {
-			if matchTeam(all[i].HomeTeam, tb.HomeTeam) && matchTeam(all[i].AwayTeam, tb.AwayTeam) && all[i].Date == tb.Date {
-				s := strings.Split(tb.Score, ":")
+		isoD := scraper.ParseDatePt(all[i].Date)
+		for _, t := range tb {
+			if matchTeam(all[i].HomeTeam, t.HomeTeam) && matchTeam(all[i].AwayTeam, t.AwayTeam) && (isoD == t.Date || all[i].Date == t.Date || strings.Contains(all[i].Date, t.Date) || strings.Contains(t.Date, isoD)) {
+				s := strings.Split(t.Score, ":")
 				if len(s) == 2 {
 					hs, as := atoi2(s[0]), atoi2(s[1])
 					all[i].HomeScore = &hs; all[i].AwayScore = &as; all[i].Status = "FINALIZADO"
@@ -85,19 +79,20 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 			}
 		}
 	}
+	log.Printf("[games] %d for club %s season %s", len(all), clubID, season)
 	raw2, _ := json.Marshal(all)
 	f.cache.Set(key, raw2, cache.TTLToday)
 	return all, nil
 }
 
 func (f *FPBAPI) fetchTugaScores() []scraper.TBGameResult {
-	var all []scraper.TBGameResult
+	var a []scraper.TBGameResult
 	for _, cid := range []string{"10902","10903","10904","10906","10907"} {
-		body, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/getCompetitionDetails?competitionId=%s", cid))
+		b, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/getCompetitionDetails?competitionId=%s", cid))
 		if err != nil { continue }
-		all = append(all, scraper.ScrapeTugaBasketGames(string(body))...)
+		a = append(a, scraper.ScrapeTugaBasketGames(string(b))...)
 	}
-	return all
+	return a
 }
 
 func matchTeam(a, b string) bool {
@@ -128,11 +123,7 @@ func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {
 		}
 	}
 	if len(comps) == 0 {
-		comps = []models.Competition{
-			{ID: "10902", Name: "Liga Betclic Masculina"},
-			{ID: "10903", Name: "Proliga"},
-			{ID: "10904", Name: "1a Divisao Masculina"},
-		}
+		comps = []models.Competition{{ID: "10902", Name: "Liga Betclic"}, {ID: "10903", Name: "Proliga"}, {ID: "10904", Name: "1a Divisao"}}
 	}
 	raw2, _ := json.Marshal(comps)
 	f.cache.Set(key, raw2, 1440)
@@ -162,7 +153,7 @@ func (f *FPBAPI) GetTeam(id string) (*scraper.TeamDetail, error) {
 	body, err := f.http.Get(fmt.Sprintf("%s/equipa/%s/", fpbBase, url.PathEscape(id)))
 	if err != nil { return nil, err }
 	td := scraper.ScrapeTeamDetail(string(body))
-	if td == nil { return nil, fmt.Errorf("failed to parse team %s", id) }
+	if td == nil { return nil, fmt.Errorf("parse team %s failed", id) }
 	raw2, _ := json.Marshal(td)
 	f.cache.Set(key, raw2, cache.TTLHistorical)
 	return td, nil
@@ -188,38 +179,22 @@ func (f *FPBAPI) GetStandings(compID string) ([]models.Standing, error) {
 		var s []models.Standing
 		if err := json.Unmarshal(raw, &s); err == nil { return s, nil }
 	}
-
-	// First: fetch classification page to get default fase ID
 	html, err := f.http.Get(fmt.Sprintf("%s/classificacao/%s", fpbBase, compID))
-	var faseID string
+	faseID := "30969"
 	if err == nil {
-		fases := scraper.ExtractFaseIDs(string(html))
-		if len(fases) > 0 { faseID = fases[0].ID }
+		for _, fs := range scraper.ExtractFaseIDs(string(html)) { faseID = fs.ID; break }
 	}
-	if faseID == "" { faseID = "30969" }
-
-	// Fetch standings via AJAX
-	u := fmt.Sprintf("%s/wp-admin/admin-ajax.php?action=get_more_fase_regular&competicao%%5B%%5D=%s&fase=%s", fpbBase, compID, faseID)
-	log.Printf("[standings] fetching fase %s for comp %s", faseID, compID)
-	body, err := f.http.Get(u)
+	body, err := f.http.Get(fmt.Sprintf("%s/wp-admin/admin-ajax.php?action=get_more_fase_regular&competicao%%5B%%5D=%s&fase=%s", fpbBase, compID, faseID))
 	if err != nil { return nil, err }
-
-	// Parse JSON envelope
-	var ajaxResp struct {
-		Result struct {
-			Body string `json:"body"`
-		} `json:"result"`
+	var ar struct{ Result struct{ Body string `json:"body"` } `json:"result"` }
+	var s []models.Standing
+	if json.Unmarshal(body, &ar) == nil && ar.Result.Body != "" {
+		s = scraper.ScrapeStandings(ar.Result.Body)
 	}
-	var standings []models.Standing
-	if err := json.Unmarshal(body, &ajaxResp); err == nil && ajaxResp.Result.Body != "" {
-		standings = scraper.ScrapeStandings(ajaxResp.Result.Body)
-	} else {
-		standings = scraper.ScrapeStandings(string(body))
-	}
-
-	raw2, _ := json.Marshal(standings)
+	if len(s) == 0 { s = scraper.ScrapeStandings(string(body)) }
+	raw2, _ := json.Marshal(s)
 	f.cache.Set(key, raw2, cache.TTLStandings)
-	return standings, nil
+	return s, nil
 }
 
 func (f *FPBAPI) GetTugaBasketStandings(competitionID string) ([]scraper.TugaBasketStanding, error) {
