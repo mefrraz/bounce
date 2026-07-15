@@ -47,3 +47,7 @@ type Competition struct {
 	Category     string `json:"escalao,omitempty"`
 	Season       string `json:"epoca,omitempty"`
 }
+
+type GameDetail struct {
+	Game
+}

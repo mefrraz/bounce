@@ -54,12 +54,13 @@ func main() {
 	}))
 
 	r.Get("/health", apihandler.Health)
+	r.Get("/test", apihandler.TestPage)
 
 	handler := apihandler.NewHandler(fpb)
 	handler.RegisterRoutes(r)
 
 	addr := ":" + port
-	log.Printf("Bounce v0.2.0 starting on %s", addr)
+	log.Printf("Bounce v0.3.0 starting on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
