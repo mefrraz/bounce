@@ -82,6 +82,7 @@ func main() {
 
 	r.Get("/health", apihandler.Health)
 	r.Get("/test", apihandler.TestPage)
+	r.Get("/app", apihandler.AppPage)
 
 	handler := apihandler.NewHandler(fpb)
 	handler.RegisterRoutes(r)

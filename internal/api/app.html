@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bounce — Mini Dribly</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#0f0f1a;color:#ddd;min-height:100vh}
+header{background:#1a1a2e;padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
+header h1{font-size:18px;color:#ff6b35}
+header .ver{font-size:11px;color:#888}
+nav{display:flex;gap:4px;padding:8px 16px;background:#12121f}
+nav a{color:#888;text-decoration:none;padding:6px 12px;border-radius:4px;font-size:13px}
+nav a:hover,nav a.active{background:#ff6b35;color:#000}
+main{padding:16px;max-width:800px;margin:0 auto}
+.card{background:#1a1a2e;border-radius:8px;padding:14px;margin-bottom:10px}
+.card h2{font-size:14px;margin-bottom:8px;color:#ff6b35}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.badge{background:#0a0a15;padding:4px 10px;border-radius:4px;font-size:12px;display:inline-flex;align-items:center;gap:6px}
+.badge img{width:18px;height:18px;border-radius:50%}
+.badge a{color:#4fc3f7;text-decoration:none}
+input,button,select{background:#0a0a15;border:1px solid #333;color:#ddd;padding:8px 12px;border-radius:4px;font-size:13px}
+button{background:#ff6b35;color:#000;border:none;cursor:pointer;font-weight:bold}
+button:hover{opacity:.85}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:6px 8px;text-align:left;border-bottom:1px solid #222}
+th{color:#888;font-size:11px}
+.score{font-weight:bold;color:#4fc3f7}
+.live{color:#f44336;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.5}}
+.loading{text-align:center;padding:20px;color:#888}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bounce</h1><span class="ver">Mini Dribly</span>
+</header>
+<nav>
+  <a href="#" class="active" onclick="showPage('home')">Inicio</a>
+  <a href="#" onclick="showPage('clubes')">Clubes</a>
+  <a href="#" onclick="showPage('competicoes')">Competicoes</a>
+  <a href="#" onclick="showPage('jogo')">Jogo</a>
+  <a href="#" onclick="showPage('atleta')">Atleta</a>
+  <a href="#" onclick="showPage('tuga')">TugaBasket</a>
+  <a href="#" onclick="showPage('elo')">ELO</a>
+</nav>
+<main id="main"></main>
+
+<script>
+const API = '';
+
+async function api(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+function showPage(p) {
+  document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
+  event.target.classList.add('active');
+  const m = document.getElementById('main');
+  m.innerHTML = '<div class="loading">A carregar...</div>';
+  pages[p]().then(h=>m.innerHTML=h).catch(e=>m.innerHTML='<div class="card">Erro: '+e.message+'</div>');
+}
+
+const pages = {
+  home: async () => {
+    const h = await api('/health');
+    const c = await api('/api/competitions');
+    return `<div class="card"><h2>Bounce v${h.version}</h2><p>Status: ${h.status}</p></div>
+    <div class="card"><h2>Competicoes (${c.length})</h2>${c.map(x=>'<div class="badge">'+x.nome+' ('+x.abreviatura+')</div>').join(' ')}</div>
+    <div class="card"><h2>Acoes rapidas</h2>
+      <button onclick="showPage(\'jogo\');document.getElementById(\'jogo-id\').value=\'413420\';loadJogo()">Jogo 413420 (Benfica-Porto)</button>
+      <button onclick="showPage(\'clubes\');document.getElementById(\'clube-id\').value=\'119\';loadClube()" style="margin-left:6px">Clube 119 (Benfica)</button>
+    </div>`;
+  },
+  clubes: async () => {
+    return `<div class="card"><h2>Clubes</h2>
+      <input id="clube-id" value="119" placeholder="Club ID" style="width:100px">
+      <input id="clube-season" value="2025/2026" placeholder="Season" style="width:100px">
+      <button onclick="loadClube()">Ver jogos</button>
+      <div id="clube-out"></div></div>`;
+  },
+  competicoes: async () => {
+    try {
+      const c = await api('/api/competitions');
+      return `<div class="card"><h2>Competicoes</h2>
+        <input id="comp-id" value="" placeholder="Competition ID" style="width:100px">
+        <select id="comp-page"><option value="calendario">Calendario</option><option value="resultados">Resultados</option></select>
+        <button onclick="loadComp()">Ver</button>
+        <div id="comp-out"></div>
+        <p style="margin-top:8px;font-size:11px;color:#888">IDs conhecidos:</p>
+        ${c.map(x=>'<span class="badge" onclick="document.getElementById(\'comp-id\').value=\''+x.id+'\';loadComp()" style="cursor:pointer">'+x.nome+' ('+x.id+')</span>').join(' ')}
+      </div>`;
+    } catch { return '<div class="card">Sem competicoes disponiveis</div>'; }
+  },
+  jogo: async () => {
+    return `<div class="card"><h2>Ficha de Jogo</h2>
+      <input id="jogo-id" value="413420" placeholder="Internal ID" style="width:120px">
+      <button onclick="loadJogo()">Ver</button>
+      <div id="jogo-out"></div></div>`;
+  },
+  atleta: async () => {
+    return `<div class="card"><h2>Atleta</h2>
+      <input id="atl-id" value="269564" placeholder="Athlete ID" style="width:100px">
+      <button onclick="loadAtleta()">Ver</button>
+      <div id="atl-out"></div></div>`;
+  },
+  tuga: async () => {
+    return `<div class="card"><h2>TugaBasket</h2>
+      <input id="tb-id" value="1" placeholder="Competition ID" style="width:100px">
+      <button onclick="loadTuga()">Ver classificacao</button>
+      <div id="tb-out"></div></div>`;
+  },
+  elo: async () => {
+    return `<div class="card"><h2>ELO Ranking</h2>
+      <button onclick="loadELO()">Carregar</button>
+      <div id="elo-out"></div>
+      <div class="card" style="margin-top:10px"><h2>Previsao</h2>
+      <input id="pred-id" value="413420" placeholder="Game ID" style="width:100px">
+      <button onclick="loadPred()">Prever</button><div id="pred-out"></div></div></div></div>`;
+  }
+};
+
+async function loadClube() {
+  const id = document.getElementById('clube-id').value;
+  const s = document.getElementById('clube-season').value;
+  const out = document.getElementById('clube-out');
+  out.innerHTML = '<div class="loading">A carregar jogos...</div>';
+  try {
+    const games = await api('/api/games?club='+id+'&season='+encodeURIComponent(s));
+    out.innerHTML = '<p>'+games.length+' jogos encontrados</p>' +
+      games.slice(0,20).map(g => 
+        '<div class="card" style="padding:8px;margin:4px 0">' +
+        '<strong>'+g.data+'</strong> ' +
+        '<span style="cursor:pointer;color:#4fc3f7" onclick="document.getElementById(\'jogo-id\').value=\''+g.id+'\';showPage(\'jogo\');loadJogo()">' +
+        (g.equipa_casa||'?')+' '+(g.resultado_casa!=null?g.resultado_casa:'')+'-'+(g.resultado_fora!=null?g.resultado_fora:'')+' '+(g.equipa_fora||'?')+'</span> ' +
+        '<span style="color:#888;font-size:11px">'+g.competicao+'</span>' +
+        '</div>'
+      ).join('');
+  } catch(e) { out.innerHTML = 'Erro: '+e.message; }
+}
+
+async function loadComp() {
+  const id = document.getElementById('comp-id').value;
+  const page = document.getElementById('comp-page').value;
+  const out = document.getElementById('comp-out');
+  out.innerHTML = '<div class="loading">A carregar...</div>';
+  try {
+    const games = await api('/api/games?competition='+id+'&page='+page);
+    out.innerHTML = '<p>'+games.length+' jogos</p>' +
+      games.slice(0,20).map(g => '<div class="card" style="padding:6px;margin:2px 0;font-size:12px"><strong>'+g.data+'</strong> '+(g.equipa_casa||'?')+' vs '+(g.equipa_fora||'?')+'</div>').join('');
+  } catch(e) { out.innerHTML = 'Erro: '+e.message; }
+}
+
+async function loadJogo() {
+  const id = document.getElementById('jogo-id').value;
+  const out = document.getElementById('jogo-out');
+  out.innerHTML = '<div class="loading">A carregar...</div>';
+  try {
+    const g = await api('/api/game/'+id);
+    const logo = (url) => url ? '<img src="'+url+'" style="width:40px;height:40px">' : '';
+    out.innerHTML = 
+      '<div style="display:flex;align-items:center;justify-content:center;gap:20px;font-size:18px;margin:12px 0">' +
+      logo(g.logo_casa) + '<strong>'+g.equipa_casa+'</strong>' +
+      '<span class="score">'+(g.resultado_casa!=null?g.resultado_casa:'?')+' - '+(g.resultado_fora!=null?g.resultado_fora:'?')+'</span>' +
+      '<strong>'+g.equipa_fora+'</strong>' + logo(g.logo_fora) + '</div>' +
+      '<p style="text-align:center;color:#888">Estado: '+g.estado+'</p>' +
+      (g.periodos&&g.periodos.length?'<p style="text-align:center">Periodos: '+g.periodos.map(p=>'Q'+p.periodo+': '+p.home_score+'-'+p.away_score).join(' | ')+'</p>':'');
+  } catch(e) { out.innerHTML = 'Erro: '+e.message; }
+}
+
+async function loadAtleta() {
+  const id = document.getElementById('atl-id').value;
+  const out = document.getElementById('atl-out');
+  out.innerHTML = '<div class="loading">A carregar...</div>';
+  try {
+    const a = await api('/api/athlete/'+id);
+    const foto = a.foto ? '<img src="'+a.foto+'" style="width:60px;height:60px;border-radius:50%">' : '';
+    out.innerHTML = foto + '<h3>'+a.nome+'</h3>' +
+      '<p>#'+a.numero+' | '+a.posicao+' | '+a.clube+'</p>' +
+      '<p>PTS: '+a.pontos+' | REB: '+a.ressaltos+' | AST: '+a.assistencias+'</p>';
+  } catch(e) { out.innerHTML = 'Erro: '+e.message; }
+}
+
+async function loadTuga() {
+  const id = document.getElementById('tb-id').value;
+  const out = document.getElementById('tb-out');
+  out.innerHTML = '<div class="loading">A carregar...</div>';
+  try {
+    const rows = await api('/api/tugabasket/standings?competitionId='+id);
+    const groups = {};
+    rows.forEach(r => { if(!groups[r.grupo]) groups[r.grupo]=[]; groups[r.grupo].push(r); });
+    out.innerHTML = Object.entries(groups).map(([g,teams]) =>
+      '<h3 style="margin-top:12px;color:#ff6b35">'+g+'</h3>' +
+      '<table><tr><th>#</th><th>Equipa</th><th>J</th><th>V</th><th>D</th><th>Pts</th></tr>' +
+      teams.map(t=>'<tr><td>'+t.posicao+'</td><td>'+t.equipa+'</td><td>'+t.jogos+'</td><td>'+t.vitorias+'</td><td>'+t.derrotas+'</td><td><strong>'+t.pontos+'</strong></td></tr>').join('') +
+      '</table>'
+    ).join('');
+  } catch(e) { out.innerHTML = 'Erro: '+e.message; }
+}
+
+async function loadELO() {
+  const out = document.getElementById('elo-out');
+  try {
+    const elo = await api('/api/elo');
+    out.innerHTML = JSON.stringify(elo);
+  } catch(e) { out.innerHTML = 'Erro: '+e.message; }
+}
+
+async function loadPred() {
+  const id = document.getElementById('pred-id').value;
+  const out = document.getElementById('pred-out');
+  try {
+    const p = await api('/api/predictions/'+id);
+    out.innerHTML = JSON.stringify(p);
+  } catch(e) { out.innerHTML = 'Erro: '+e.message; }
+}
+
+// Init
+showPage('home');
+</script>
+</body>
+</html>
