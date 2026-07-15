@@ -188,10 +188,35 @@ func (f *FPBAPI) GetStandings(compID string) ([]models.Standing, error) {
 		var s []models.Standing
 		if err := json.Unmarshal(raw, &s); err == nil { return s, nil }
 	}
-	// Fetch classification page HTML and parse h5 elements (Dribly approach)
-	body, err := f.http.Get(fmt.Sprintf("%s/classificacao/%s", fpbBase, compID))
+
+	// First: fetch classification page to get default fase ID
+	html, err := f.http.Get(fmt.Sprintf("%s/classificacao/%s", fpbBase, compID))
+	var faseID string
+	if err == nil {
+		fases := scraper.ExtractFaseIDs(string(html))
+		if len(fases) > 0 { faseID = fases[0].ID }
+	}
+	if faseID == "" { faseID = "30969" }
+
+	// Fetch standings via AJAX
+	u := fmt.Sprintf("%s/wp-admin/admin-ajax.php?action=get_more_fase_regular&competicao%%5B%%5D=%s&fase=%s", fpbBase, compID, faseID)
+	log.Printf("[standings] fetching fase %s for comp %s", faseID, compID)
+	body, err := f.http.Get(u)
 	if err != nil { return nil, err }
-	standings := scraper.ScrapeStandings(string(body))
+
+	// Parse JSON envelope
+	var ajaxResp struct {
+		Result struct {
+			Body string `json:"body"`
+		} `json:"result"`
+	}
+	var standings []models.Standing
+	if err := json.Unmarshal(body, &ajaxResp); err == nil && ajaxResp.Result.Body != "" {
+		standings = scraper.ScrapeStandings(ajaxResp.Result.Body)
+	} else {
+		standings = scraper.ScrapeStandings(string(body))
+	}
+
 	raw2, _ := json.Marshal(standings)
 	f.cache.Set(key, raw2, cache.TTLStandings)
 	return standings, nil
