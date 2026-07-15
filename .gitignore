@@ -1,6 +1,8 @@
 # Binaries
 bounce
 bounce.exe
+server.exe
+*.exe
 
 # IDE
 .idea/
