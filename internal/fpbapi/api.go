@@ -55,47 +55,69 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	if len(parts) != 2 { return nil, fmt.Errorf("invalid season: %s", season) }
 	yearStart, yearEnd := parts[0], parts[1]
 
-	params := url.Values{}
-	params.Set("action", "get_more_days")
-	params.Set("epoca", season)
-	params.Set("escalao", "Senior")
-	params.Set("genero", "masculino")
-	params.Set("clube", clubID)
-	params.Set("period[time_option]", "fromInit")
-	params.Set("period[from_date]", yearStart+"/09/01")
-	params.Set("period[to_date]", yearEnd+"/06/30")
-
-	u := fpbBase + "/wp-admin/admin-ajax.php?" + params.Encode()
-	log.Printf("[ajax] club %s season %s", clubID, season)
-
-	body, err := f.http.Get(u)
-	if err != nil { return nil, fmt.Errorf("fetch: %w", err) }
-
-	var ajaxResp struct {
-		Result  interface{} `json:"result"`
-		Hasmore bool        `json:"hasmore"`
-	}
-	if err := json.Unmarshal(body, &ajaxResp); err != nil {
-		games := scraper.ScrapeGames(string(body), "FINALIZADO")
-		raw2, _ := json.Marshal(games)
-		f.cache.Set(key, raw2, cache.TTLToday)
-		return games, nil
+	// Fetch games for ALL categories (Senior, Sub-23, Sub-19, etc.)
+	categories := []struct{ escalao, genero string }{
+		{"Senior", "masculino"},
+		{"Senior", "feminino"},
+		{"Sub-23", "masculino"},
+		{"Sub-19", "masculino"},
+		{"Sub-19", "feminino"},
+		{"Sub-16", "masculino"},
+		{"Sub-16", "feminino"},
+		{"Sub-14", "masculino"},
+		{"Sub-14", "feminino"},
 	}
 
-	var allHTML strings.Builder
-	switch v := ajaxResp.Result.(type) {
-	case string: allHTML.WriteString(v)
-	case []interface{}:
-		for _, item := range v {
-			if s, ok := item.(string); ok { allHTML.WriteString(s) }
+	var allGames []models.Game
+	seen := map[string]bool{}
+
+	for _, cat := range categories {
+		params := url.Values{}
+		params.Set("action", "get_more_days")
+		params.Set("epoca", season)
+		params.Set("escalao", cat.escalao)
+		params.Set("genero", cat.genero)
+		params.Set("clube", clubID)
+		params.Set("period[time_option]", "fromInit")
+		params.Set("period[from_date]", yearStart+"/09/01")
+		params.Set("period[to_date]", yearEnd+"/06/30")
+
+		u := fpbBase + "/wp-admin/admin-ajax.php?" + params.Encode()
+		body, err := f.http.Get(u)
+		if err != nil { continue }
+
+		var ajaxResp struct {
+			Result  interface{} `json:"result"`
+			Hasmore bool        `json:"hasmore"`
+		}
+		if err := json.Unmarshal(body, &ajaxResp); err != nil { continue }
+
+		var html strings.Builder
+		switch v := ajaxResp.Result.(type) {
+		case string: html.WriteString(v)
+		case []interface{}:
+			for _, item := range v {
+				if s, ok := item.(string); ok { html.WriteString(s) }
+			}
+		}
+
+		games := scraper.ScrapeGames(html.String(), "FINALIZADO")
+		for _, g := range games {
+			if !seen[g.ID] {
+				seen[g.ID] = true
+				g.Category = cat.escalao + " " + cat.genero
+				allGames = append(allGames, g)
+			}
+		}
+		if len(games) > 0 {
+			log.Printf("[ajax] %s/%s: %d games", cat.escalao, cat.genero, len(games))
 		}
 	}
 
-	games := scraper.ScrapeGames(allHTML.String(), "FINALIZADO")
-	log.Printf("[ajax] %d games for club %s season %s", len(games), clubID, season)
-	raw2, _ := json.Marshal(games)
+	log.Printf("[ajax] total %d games for club %s season %s", len(allGames), clubID, season)
+	raw2, _ := json.Marshal(allGames)
 	f.cache.Set(key, raw2, cache.TTLToday)
-	return games, nil
+	return allGames, nil
 }
 
 func (f *FPBAPI) GetStandings(compID string) ([]models.Standing, error) {
