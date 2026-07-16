@@ -30,6 +30,7 @@ func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 		var g models.GameDetail
 		if err := json.Unmarshal(raw, &g); err == nil { return &g, nil }
 	}
+	metrics.IncCacheMiss()
 	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("%s/ficha-de-jogo?internalID=%s", fpbBase, url.PathEscape(internalID)))
 	if err != nil { return nil, err }
@@ -58,7 +59,7 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 		var c []models.Game
 		if err := json.Unmarshal(raw, &c); err == nil { return c, nil }
 	}
-
+	metrics.IncCacheMiss()
 	p := url.Values{}
 	p.Set("action", "get_results")
 	p.Set("epoca", season)
@@ -92,6 +93,7 @@ func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {
 		var c []models.Competition
 		if err := json.Unmarshal(raw, &c); err == nil { return c, nil }
 	}
+	metrics.IncCacheMiss()
 	metrics.IncFPBRequest()
 	body, err := f.http.Post(fpbBase+"/wp-admin/admin-ajax.php", "action=get_competicoes&epoca="+cache.CurrentSeason()+"&escalao=Senior&genero=masculino&radio=true")
 	var comps []models.Competition
@@ -122,6 +124,7 @@ func (f *FPBAPI) GetAthlete(id string) (*scraper.AthleteData, error) {
 		var a scraper.AthleteData
 		if err := json.Unmarshal(raw, &a); err == nil { return &a, nil }
 	}
+	metrics.IncCacheMiss()
 	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("%s/atletas/%s/", fpbBase, url.PathEscape(id)))
 	if err != nil { return nil, err }
@@ -137,6 +140,7 @@ func (f *FPBAPI) GetTeam(id string) (*scraper.TeamDetail, error) {
 		var td scraper.TeamDetail
 		if err := json.Unmarshal(raw, &td); err == nil { return &td, nil }
 	}
+	metrics.IncCacheMiss()
 	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("%s/equipa/%s/", fpbBase, url.PathEscape(id)))
 	if err != nil { return nil, err }
@@ -152,6 +156,7 @@ func (f *FPBAPI) GetClubTeams(clubID string) ([]models.Team, error) {
 		var t []models.Team
 		if err := json.Unmarshal(raw, &t); err == nil { return t, nil }
 	}
+	metrics.IncCacheMiss()
 	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("%s/wp-admin/admin-ajax.php?action=get_equipas&idClube=%s&epoca=2025/2026epoca="+cache.CurrentSeason()+"", fpbBase, clubID))
 	if err != nil { return nil, err }
@@ -172,6 +177,7 @@ func (f *FPBAPI) GetStandings(compID string) ([]models.Standing, error) {
 	if html != nil {
 		for _, fs := range scraper.ExtractFaseIDs(string(html)) { faseID = fs.ID; break }
 	}
+	metrics.IncCacheMiss()
 	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("%s/wp-admin/admin-ajax.php?action=get_more_fase_regular&competicao%%5B%%5D=%s&fase=%s", fpbBase, compID, faseID))
 	if err != nil { return nil, err }
@@ -192,6 +198,7 @@ func (f *FPBAPI) GetTugaBasketStandings(competitionID string) ([]scraper.TugaBas
 		var s []scraper.TugaBasketStanding
 		if err := json.Unmarshal(raw, &s); err == nil { return s, nil }
 	}
+	metrics.IncCacheMiss()
 	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/getCompetitionDetails?competitionId=%s", competitionID))
 	if err != nil { return nil, err }
@@ -207,6 +214,7 @@ func (f *FPBAPI) GetTugaBasketPlayers(competitionID string) ([]scraper.TBPlayerS
 		var p []scraper.TBPlayerStat
 		if err := json.Unmarshal(raw, &p); err == nil { return p, nil }
 	}
+	metrics.IncCacheMiss()
 	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/stats/players?competitionId=%s", competitionID))
 	if err != nil { return nil, err }
@@ -222,6 +230,7 @@ func (f *FPBAPI) GetTugaBasketTeams(competitionID string) ([]scraper.TBTeamStat,
 		var t []scraper.TBTeamStat
 		if err := json.Unmarshal(raw, &t); err == nil { return t, nil }
 	}
+	metrics.IncCacheMiss()
 	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/stats/teams?competitionId=%s", competitionID))
 	if err != nil { return nil, err }
@@ -237,6 +246,7 @@ func (f *FPBAPI) GetGamesByCompetition(compID, season string) ([]models.Game, er
 		var g []models.Game
 		if err := json.Unmarshal(raw, &g); err == nil { return g, nil }
 	}
+	metrics.IncCacheMiss()
 	p := url.Values{}
 	p.Set("action", "get_results")
 	p.Set("epoca", season)

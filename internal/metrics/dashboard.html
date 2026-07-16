@@ -353,7 +353,6 @@ function connectWS(){
 try{
 ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/dashboard');
 ws.onopen=function(){setLive(true)};
-let lastWs={requests:0,cacheHits:0,cacheMisses:0,fpb:0,limited:0};
 ws.onmessage=function(e){try{var d=JSON.parse(e.data);
 var r=d.requests||0,ch=d.cache_hits||0,cm=d.cache_misses||0,fp=d.fpb_requests||0,rl=d.rate_limited||0;
 var total=ch+cm,rate=total>0?Math.round(ch/total*100):0;
@@ -361,14 +360,7 @@ $('mRequests').textContent=fmtNumber(r);
 $('mCache').textContent=rate+'%';
 $('mFpb').textContent=fmtNumber(fp);
 $('mLimited').textContent=fmtNumber(rl);
-$('lastUpdate').textContent='Última atualização: '+fmtTime(new Date());
-// sub-texts
-function subEl(id,curr,prev,u){var el=$(id);if(!el)return;var diff=curr-prev;if(diff===0){el.innerHTML='— sem alteração';return}var cls=diff>0?'trend-up':'trend-down',arrow=diff>0?'▲':'▼';el.innerHTML='<span class="'+cls+'">'+arrow+' '+Math.abs(diff).toLocaleString('pt-PT')+(u||'')+'</span> vs anterior'}
-subEl('mRequestsSub',r,lastWs.requests);
-subEl('mCacheSub',rate,lastWs.cacheHits+lastWs.cacheMisses>0?Math.round(lastWs.cacheHits/(lastWs.cacheHits+lastWs.cacheMisses)*100):0,'%');
-subEl('mFpbSub',fp,lastWs.fpb);
-subEl('mLimitedSub',rl,lastWs.limited);
-lastWs={requests:r,cacheHits:ch,cacheMisses:cm,fpb:fp,limited:rl}
+$('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())
 }catch(ex){}};
 ws.onclose=function(){if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
 }catch(ex){}
