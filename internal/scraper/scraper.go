@@ -491,3 +491,57 @@ func ScrapeTugaBasketStandings(html string) []TugaBasketStanding {
 
 	return standings
 }
+
+// ---- TugaBasket Player Stats ----
+
+type TBPlayerStat struct {
+	Name  string `json:"nome"`
+	Team  string `json:"equipa"`
+	Games int    `json:"jogos"`
+	MIN   string `json:"min"`
+	PTS   string `json:"pts"`
+	L2Pct string `json:"l2pct"`
+	L3Pct string `json:"l3pct"`
+	LLPct string `json:"llpct"`
+	RD    string `json:"rd"`
+	RO    string `json:"ro"`
+	TR    string `json:"tr"`
+	AS    string `json:"as"`
+	RB    string `json:"rb"`
+	TO    string `json:"to"`
+	DL    string `json:"dl"`
+	FC    string `json:"fc"`
+	FS    string `json:"fs"`
+	VAL   string `json:"val"`
+}
+
+func ScrapeTugaBasketPlayers(html string) []TBPlayerStat {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil { return nil }
+	var players []TBPlayerStat
+	doc.Find("table tbody tr").Each(func(_ int, row *goquery.Selection) {
+		cells := row.Find("td")
+		if cells.Length() < 5 { return }
+		p := TBPlayerStat{}
+		p.Name = strings.TrimSpace(cells.Eq(0).Text())
+		p.Team = strings.TrimSpace(cells.Eq(1).Text())
+		p.Games = atoi(strings.TrimSpace(cells.Eq(2).Text()))
+		if cells.Length() > 3 { p.MIN = strings.TrimSpace(cells.Eq(3).Text()) }
+		if cells.Length() > 4 { p.PTS = strings.TrimSpace(cells.Eq(4).Text()) }
+		if cells.Length() > 5 { p.L2Pct = strings.TrimSpace(cells.Eq(5).Text()) }
+		if cells.Length() > 6 { p.L3Pct = strings.TrimSpace(cells.Eq(6).Text()) }
+		if cells.Length() > 7 { p.LLPct = strings.TrimSpace(cells.Eq(7).Text()) }
+		if cells.Length() > 8 { p.RD = strings.TrimSpace(cells.Eq(8).Text()) }
+		if cells.Length() > 9 { p.RO = strings.TrimSpace(cells.Eq(9).Text()) }
+		if cells.Length() > 10 { p.TR = strings.TrimSpace(cells.Eq(10).Text()) }
+		if cells.Length() > 11 { p.AS = strings.TrimSpace(cells.Eq(11).Text()) }
+		if cells.Length() > 12 { p.RB = strings.TrimSpace(cells.Eq(12).Text()) }
+		if cells.Length() > 13 { p.TO = strings.TrimSpace(cells.Eq(13).Text()) }
+		if cells.Length() > 14 { p.DL = strings.TrimSpace(cells.Eq(14).Text()) }
+		if cells.Length() > 15 { p.FC = strings.TrimSpace(cells.Eq(15).Text()) }
+		if cells.Length() > 16 { p.FS = strings.TrimSpace(cells.Eq(16).Text()) }
+		if cells.Length() > 17 { p.VAL = strings.TrimSpace(cells.Eq(17).Text()) }
+		if p.Name != "" { players = append(players, p) }
+	})
+	return players
+}

@@ -25,6 +25,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/team/{id}", h.GetTeam)
 	r.Get("/api/club/{clubID}/teams", h.GetClubTeams)
 	r.Get("/api/tugabasket/standings", h.GetTugaBasketStandings)
+	r.Get("/api/tugabasket/players", h.GetTugaBasketPlayers)
 }
 
 // GetGames supports:
@@ -136,6 +137,20 @@ func (h *Handler) GetTugaBasketStandings(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusOK, standings)
+}
+
+func (h *Handler) GetTugaBasketPlayers(w http.ResponseWriter, r *http.Request) {
+	compID := r.URL.Query().Get("competitionId")
+	if compID == "" {
+		http.Error(w, `{"error":"competitionId required"}`, http.StatusBadRequest)
+		return
+	}
+	players, err := h.FPB.GetTugaBasketPlayers(compID)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, players)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

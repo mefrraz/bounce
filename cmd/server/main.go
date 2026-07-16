@@ -93,7 +93,7 @@ func main() {
 	defer sched.Stop()
 
 	addr := ":" + port
-	log.Printf("Bounce v0.5.0 starting on %s", addr)
+	log.Printf("Bounce %s starting on %s", apihandler.Version, addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
