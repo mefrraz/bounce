@@ -20,9 +20,10 @@ func IncFPBRequest()  { atomic.AddUint64(&FPBRequestsTotal, 1) }
 func IncRateLimited() { atomic.AddUint64(&RateLimitedTotal, 1) }
 
 func StartRecording() {
+	RecordSnapshot() // baseline at t=0 captures pre-warm activity
 	go func() {
 		for {
-			time.Sleep(60 * time.Second)
+			time.Sleep(10 * time.Second)
 			RecordSnapshot()
 		}
 	}()

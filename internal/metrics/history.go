@@ -34,8 +34,8 @@ func RecordSnapshot() {
 		RateLimited: RateLimitedTotal,
 		Goroutines:  runtime.NumGoroutine(),
 	})
-	// Keep only last 7 days (10080 minutes)
-	if len(history) > 10080 {
+	// Keep only last 7 days (6 snapshots/min × 60 × 24 × 7 = 60480)
+	if len(history) > 60480 {
 		history = history[len(history)-10080:]
 	}
 }
