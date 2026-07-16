@@ -26,18 +26,13 @@ import (
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
-
 	port := os.Getenv("BOUNCE_PORT")
 	if port == "" { port = "3001" }
 	dataDir := os.Getenv("BOUNCE_DATA_DIR")
 	if dataDir == "" { dataDir = "/data" }
+	if err := os.MkdirAll(dataDir, 0755); err != nil { log.Fatalf("data dir: %v", err) }
 
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		log.Fatalf("create data dir: %v", err)
-	}
-
-	dbPath := filepath.Join(dataDir, "bounce.db")
-	store, err := cache.NewStore(dbPath)
+	store, err := cache.NewStore(filepath.Join(dataDir, "bounce.db"))
 	if err != nil { log.Fatalf("cache: %v", err) }
 	defer store.Close()
 
@@ -48,66 +43,47 @@ func main() {
 	hub := ws.NewHub(nil, nil)
 
 	sched := scheduler.New(
-		func(internalID string) (*models.Game, error) {
-			detail, err := fpb.GetGame(internalID)
-			if err != nil { return nil, err }
-				return &detail.Game, nil
-		},
+		func(id string) (*models.Game, error) { d, e := fpb.GetGame(id); if e != nil { return nil, e }; return &d.Game, nil },
 		func() ([]models.Game, error) { return nil, nil },
-		func(game models.Game) {
+		func(g models.Game) {
 			et := "score_update"
-			if game.Status == "FINALIZADO" { et = "game_finished" }
-			hub.Broadcast(game.ID, ws.Event{Type: et, Data: game})
+			if g.Status == "FINALIZADO" { et = "game_finished" }
+			hub.Broadcast(g.ID, ws.Event{Type: et, Data: g})
 		},
 	)
-
 	hub.SetCallbacks(
-		func(gameID string) { sched.ScheduleGameNow(gameID) },
-		func(gameID string) { sched.UnscheduleGame(gameID) },
+		func(id string) { sched.ScheduleGameNow(id) },
+		func(id string) { sched.UnscheduleGame(id) },
 	)
 
-		r := chi.NewRouter()
-		r.Use(middleware.Logger)
-		r.Use(middleware.Recoverer)
-		r.Use(middleware.RealIP)
-		r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{"*"}, AllowedMethods: []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders: []string{"Content-Type", "Authorization"},
-		AllowCredentials: false, MaxAge: 86400,
-	}))
+	r := chi.NewRouter()
+	r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP)
+	r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{"*"}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
 
-		r.Get("/health", apihandler.Health)
-		r.Get("/test", apihandler.TestPage)
-		r.Get("/app", apihandler.AppPage)
-		r.Get("/metrics", metricsHandler)
-r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/swagger.json") })
-		r.Get("/docs", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
-		r.Get("/docs", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/docs/index.html", http.StatusMovedPermanently)
-	})
+	rl := newRateLimiter(100, time.Minute)
+	r.Use(rl.middleware)
 
-	handler := apihandler.NewHandler(fpb)
-	handler.RegisterRoutes(r)
+	r.Get("/health", apihandler.Health)
+	r.Get("/test", apihandler.TestPage)
+	r.Get("/app", apihandler.AppPage)
+	r.Get("/metrics", metricsHandler)
+	r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/swagger.json") })
+	r.Get("/docs", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
+
+	apihandler.NewHandler(fpb).RegisterRoutes(r)
 	hub.RegisterRoutes(r)
-
-	insights := apihandler.NewInsightsHandler()
-	insights.RegisterRoutes(r)
+	apihandler.NewInsightsHandler().RegisterRoutes(r)
 
 	sched.Start()
 	defer sched.Stop()
 
-	addr := ":" + port
-	srv := &http.Server{Addr: addr, Handler: r}
-
-	// Graceful shutdown
+	srv := &http.Server{Addr: ":" + port, Handler: r}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	go func() {
-		slog.Info("starting", "version", apihandler.Version, "addr", addr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server: %v", err)
-		}
+		slog.Info("starting", "version", apihandler.Version, "addr", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed { log.Fatalf("server: %v", err) }
 	}()
 
 	<-ctx.Done()
@@ -119,5 +95,5 @@ r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) { http.
 
 func metricsHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte("# HELP bounce_uptime_seconds Uptime in seconds\n# TYPE bounce_uptime_seconds counter\nbounce_uptime_seconds 0\n"))
+	w.Write([]byte("# HELP bounce_uptime_seconds Uptime\n# TYPE bounce_uptime_seconds counter\nbounce_uptime_seconds 0\n"))
 }
