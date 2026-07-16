@@ -72,7 +72,7 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 
 	// Enrich scores via get_game_layer POST (parallel, no rate limit)
 	scored := int32(0)
-	sem := make(chan struct{}, 2) // 2 concurrent requests
+	sem := make(chan struct{}, 5) // 2 concurrent requests
 	var wg sync.WaitGroup
 	for i := range all {
 		if all[i].HomeScore != nil { continue }
@@ -102,7 +102,7 @@ type gameScore struct{ HomeScore, AwayScore *int }
 
 func (f *FPBAPI) fetchScore(internalID string) *gameScore {
 	body := "action=get_game_layer&matchId=" + internalID
-	resp, err := f.http.Post(fpbBase+"/wp-admin/admin-ajax.php", body)
+	resp, err := f.http.PostFast(fpbBase+"/wp-admin/admin-ajax.php", body)
 	if err != nil { return nil }
 	var layer struct{ Header string `json:"header"` }
 	if err := json.Unmarshal(resp, &layer); err != nil || layer.Header == "" { return nil }
