@@ -1,13 +1,16 @@
 services:
   bounce:
     build: .
+    image: ghcr.io/mefrraz/bounce:latest
+    container_name: bounce
+    restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
       - BOUNCE_PORT=3001
+      - BOUNCE_DATA_DIR=/data
     volumes:
       - bounce-data:/data
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
       interval: 30s
