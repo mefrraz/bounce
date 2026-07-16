@@ -75,7 +75,8 @@ main{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
 .metrics-grid-secondary{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;max-width:590px;margin:0 auto 26px}
 
 .charts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.chart-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;animation:fadeIn .45s ease-out}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;animation:fadeIn .45s ease-out;position:relative}
+.chart-tooltip{position:absolute;z-index:10;pointer-events:none;background:rgba(24,24,27,0.95);border:1px solid var(--border-strong);border-radius:8px;padding:6px 10px;font-size:11px;font-family:'Outfit',sans-serif;color:var(--text);display:none;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
 .chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .chart-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px}
 .chart-title .dot{width:8px;height:8px;border-radius:50%}
@@ -227,7 +228,7 @@ p.className='live-pill '+(ok?'online':'offline');
 p.innerHTML='<span class="dot"></span>'+(ok?'Live':'Offline');
 }
 
-// ── Canvas line chart (no external deps) ──
+// ── Canvas line chart with tooltip ──
 function drawLineChart(canvas,series,color,opts){
 opts=opts||{};
 var ctx=canvas.getContext('2d'),dpr=window.devicePixelRatio||1,rect=canvas.getBoundingClientRect(),w=Math.max(rect.width,260),h=150;
@@ -236,7 +237,7 @@ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
 
 var padding={top:10,right:8,bottom:18,left:30},chartW=w-padding.left-padding.right,chartH=h-padding.top-padding.bottom;
 
-// Always draw grid (even with empty/flat data)
+// Always draw grid
 ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;
 var gridLines=3;
 for(var i=0;i<=gridLines;i++){var y=padding.top+(chartH/gridLines)*i;ctx.beginPath();ctx.moveTo(padding.left,y);ctx.lineTo(w-padding.right,y);ctx.stroke()}
@@ -244,10 +245,14 @@ for(var i=0;i<=gridLines;i++){var y=padding.top+(chartH/gridLines)*i;ctx.beginPa
 if(!series||!series.length){
 ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font='12px Outfit,sans-serif';ctx.textAlign='center';
 ctx.fillText('sem dados neste período',w/2,h/2);
-return
+canvas._points=null;return
 }
 
-var values=series.map(function(p){return p.value}),max=Math.max.apply(Math,values),min=Math.min.apply(Math,values);
+// Pad to ensure at least 2 points for a visible line
+var pts=series.slice();
+if(pts.length===1)pts.unshift(pts[0]);
+
+var values=pts.map(function(p){return p.value}),max=Math.max.apply(Math,values),min=Math.min.apply(Math,values);
 if(opts.maxCap!==undefined&&max>opts.maxCap)max=opts.maxCap;
 if(opts.minCap!==undefined&&min<opts.minCap)min=opts.minCap;
 if(max===min){max=max+1;min=Math.max(0,min-1)}
@@ -258,27 +263,30 @@ ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='10px Outfit,sans-serif';ctx.tex
 ctx.fillText(Math.round(max)+(opts.suffix||''),padding.left-6,padding.top+4);
 ctx.fillText(Math.round(min)+(opts.suffix||''),padding.left-6,h-padding.bottom+3);
 
-var stepX=series.length>1?chartW/(series.length-1):0;
+var stepX=chartW/(pts.length-1);
 function xAt(i){return padding.left+stepX*i}
 function yAt(v){return padding.top+chartH-((v-min)/range)*chartH}
 
 // gradient fill
 var grad=ctx.createLinearGradient(0,padding.top,0,padding.top+chartH);
 grad.addColorStop(0,color+'55');grad.addColorStop(1,color+'00');
-ctx.beginPath();ctx.moveTo(xAt(0),yAt(series[0].value));
-series.forEach(function(p,i){if(i>0)ctx.lineTo(xAt(i),yAt(p.value))});
-ctx.lineTo(xAt(series.length-1),padding.top+chartH);ctx.lineTo(xAt(0),padding.top+chartH);ctx.closePath();
+ctx.beginPath();ctx.moveTo(xAt(0),yAt(pts[0].value));
+pts.forEach(function(p,i){if(i>0)ctx.lineTo(xAt(i),yAt(p.value))});
+ctx.lineTo(xAt(pts.length-1),padding.top+chartH);ctx.lineTo(xAt(0),padding.top+chartH);ctx.closePath();
 ctx.fillStyle=grad;ctx.fill();
 
 // line
-ctx.beginPath();ctx.moveTo(xAt(0),yAt(series[0].value));
-series.forEach(function(p,i){if(i>0)ctx.lineTo(xAt(i),yAt(p.value))});
+ctx.beginPath();ctx.moveTo(xAt(0),yAt(pts[0].value));
+pts.forEach(function(p,i){if(i>0)ctx.lineTo(xAt(i),yAt(p.value))});
 ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
 
 // last point marker
-var lastX=xAt(series.length-1),lastY=yAt(series[series.length-1].value);
+var lastX=xAt(pts.length-1),lastY=yAt(pts[pts.length-1].value);
 ctx.beginPath();ctx.arc(lastX,lastY,3.5,0,Math.PI*2);
-ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=8;ctx.fill();ctx.shadowBlur=0
+ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=8;ctx.fill();ctx.shadowBlur=0;
+
+// Store points + helpers for tooltip
+canvas._points={pts:pts,padding:padding,chartW:chartW,chartH:chartH,w:w,h:h,range:range,min:min,max:max,color:color,suffix:opts.suffix||'',labelFmt:opts.labelFmt||'HH:MM'}
 }
 
 function normalizeSnapshots(payload){
@@ -288,6 +296,7 @@ else if(payload&&Array.isArray(payload.history))arr=payload.history;
 else if(payload&&Array.isArray(payload.data))arr=payload.data;
 else if(payload&&Array.isArray(payload.snapshots))arr=payload.snapshots;
 return arr.map(function(item){return{
+time:item.Time||item.time||'',
 requests:Number(item.requests||item.Requests||0),
 cacheHits:Number(item.cache_hits||item.CacheHits||0),
 cacheMisses:Number(item.cache_misses||item.CacheMisses||0),
@@ -322,13 +331,13 @@ subText($('mLimitedSub'),latest.rateLimited,prev?prev.rateLimited:null)
 }
 
 function renderCharts(snapshots){
-var reqSeries=snapshots.map(function(s,i){return{value:i>0?Math.max(0,s.requests-(snapshots[i-1]||s).requests):0}});
-var cacheSeries=snapshots.map(function(s){return{value:computeCacheRate(s)}});
-var fpbSeries=snapshots.map(function(s,i){return{value:i>0?Math.max(0,s.fpbRequests-(snapshots[i-1]||s).fpbRequests):0}});
+var reqSeries=snapshots.map(function(s,i){return{time:s.Time||'',value:i>0?Math.max(0,s.requests-(snapshots[i-1]||s).requests):0}});
+var cacheSeries=snapshots.map(function(s){return{time:s.Time||'',value:computeCacheRate(s)}});
+var fpbSeries=snapshots.map(function(s,i){return{time:s.Time||'',value:i>0?Math.max(0,s.fpbRequests-(snapshots[i-1]||s).fpbRequests):0}});
 
-drawLineChart(canvases.requests,reqSeries,'#ff6b35');
-drawLineChart(canvases.cache,cacheSeries,'#4fc3f7',{suffix:'%',minCap:0,maxCap:100});
-drawLineChart(canvases.fpb,fpbSeries,'#22c55e');
+drawLineChart(canvases.requests,reqSeries,'#ff6b35',{labelFmt:'HH:MM'});
+drawLineChart(canvases.cache,cacheSeries,'#4fc3f7',{suffix:'%',minCap:0,maxCap:100,labelFmt:'HH:MM'});
+drawLineChart(canvases.fpb,fpbSeries,'#22c55e',{labelFmt:'HH:MM'});
 
 var last=snapshots[snapshots.length-1];
 $('chartRequestsCurrent').textContent=last?fmtNumber(last.requests):'–';
@@ -404,6 +413,36 @@ $('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())
 ws.onclose=function(){if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
 }catch(ex){}
 }
+
+// Tooltip: create a shared div for each chart card
+Object.keys(canvases).forEach(function(k){
+var canvas=canvases[k];
+var card=canvas.closest('.chart-card');
+var tip=document.createElement('div');tip.className='chart-tooltip';tip.id='tip-'+canvas.id;
+card.appendChild(tip);
+canvas._tooltip=tip;
+
+canvas.addEventListener('mousemove',function(e){
+var pts=canvas._points;if(!pts)return;
+var cRect=canvas.getBoundingClientRect();
+var mx=e.clientX-cRect.left;
+if(mx<pts.padding.left||mx>pts.padding.left+pts.chartW){tip.style.display='none';return}
+var best=null,bestDist=Infinity;
+pts.pts.forEach(function(p,i){
+var px=pts.padding.left+(pts.chartW/(pts.pts.length-1))*i;
+var dist=Math.abs(mx-px);
+if(dist<bestDist){bestDist=dist;best={i:i,px:px,val:pts.pts[i].value}}
+});
+if(!best||bestDist>40){tip.style.display='none';return}
+var t=pts.pts[best.i].time||'';
+var label=t.length>=5?t.substring(0,5):('#'+best.i);
+tip.textContent=label+'  '+Math.round(best.val)+(pts.suffix||'');
+tip.style.left=(best.px-35)+'px';
+tip.style.top='-20px';
+tip.style.display='block'
+});
+canvas.addEventListener('mouseleave',function(){canvas._tooltip.style.display='none'});
+});
 
 window.addEventListener('resize',function(){renderCharts(lastSnapshots)});
 fetchMetrics();scheduleRefresh()
