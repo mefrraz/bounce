@@ -332,17 +332,17 @@ if(snapshots.length===0){
 ['mRequests','mCache','mFpb','mLimited'].forEach(function(k){$(k).textContent='–'});
 return
 }
-var latest=snapshots[snapshots.length-1],first=snapshots[0];
+var latest=snapshots[snapshots.length-1],prev=snapshots.length>1?snapshots[snapshots.length-2]:snapshots[0];
 $('mRequests').textContent=fmtNumber(latest.requests);
 $('mCache').textContent=fmtNumber(Math.round(computeCacheRate(latest)))+'%';
 $('mFpb').textContent=fmtNumber(latest.fpbRequests);
 $('mLimited').textContent=fmtNumber(latest.rateLimited);
 
 function subText(el,curr,prevVal,unit){if(snapshots.length<2){el.textContent='primeiro snapshot';return}var diff=curr-prevVal;if(diff===0){el.innerHTML='— sem alteração';return}var cls=diff>0?'trend-up':'trend-down',arrow=diff>0?'▲':'▼';el.innerHTML='<span class="'+cls+'">'+arrow+' '+Math.abs(diff).toLocaleString('pt-PT')+(unit||'')+'</span>'}
-subText($('mRequestsSub'),latest.requests,first.requests);
-if(first)subText($('mCacheSub'),Math.round(computeCacheRate(latest)),Math.round(computeCacheRate(first)),'%');else $('mCacheSub').textContent='primeiro snapshot';
-subText($('mFpbSub'),latest.fpbRequests,first.fpbRequests);
-subText($('mLimitedSub'),latest.rateLimited,first.rateLimited)
+subText($('mRequestsSub'),latest.requests,prev.requests);
+if(prev)subText($('mCacheSub'),Math.round(computeCacheRate(latest)),Math.round(computeCacheRate(prev)),'%');else $('mCacheSub').textContent='primeiro snapshot';
+subText($('mFpbSub'),latest.fpbRequests,prev.fpbRequests);
+subText($('mLimitedSub'),latest.rateLimited,prev.rateLimited)
 }
 
 function renderCharts(snapshots){
@@ -508,7 +508,7 @@ if(dist<bestDist){bestDist=dist;best={i:i,px:px,val:pts.pts[i].value}}
 });
 if(!best||bestDist>40){tip.style.display='none';return}
 var t=pts.pts[best.i].time||'';
-var label=t.length>=5?t.substring(0,5):('#'+best.i);
+var label=t.length>=5?t.substring(0,currentMinutes<=1?8:5):('#'+best.i);
 tip.textContent=label+'  '+Math.round(best.val)+(pts.suffix||'');
 tip.style.left=(best.px-35)+'px';
 tip.style.top='-20px';
