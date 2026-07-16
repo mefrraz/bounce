@@ -46,7 +46,7 @@ func main() {
 
 	sched := scheduler.New(
 		func(id string) (*models.Game, error) { d, e := fpb.GetGame(id); if e != nil { return nil, e }; return &d.Game, nil },
-		func() ([]models.Game, error) { return nil, nil },
+		func() ([]models.Game, error) { comps, _ := fpb.GetCompetitions(); var t []models.Game; for _, c := range comps { g, _ := fpb.GetGamesByCompetition(c.ID, "2025/2026"); for _, gm := range g { if cache.IsToday(gm.Date) { t = append(t, gm) } } }; slog.Info("daily refresh", "games_today", len(t)); return t, nil },
 		func(g models.Game) {
 			et := "score_update"
 			if g.Status == "FINALIZADO" { et = "game_finished" }
