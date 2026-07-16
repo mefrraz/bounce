@@ -545,3 +545,41 @@ func ScrapeTugaBasketPlayers(html string) []TBPlayerStat {
 	})
 	return players
 }
+
+// ---- TugaBasket Team Stats ----
+
+type TBTeamStat struct {
+	Name  string `json:"nome"`
+	Games int    `json:"jogos"`
+	PTS   string `json:"pts"`
+	L2Pct string `json:"l2pct"`
+	L3Pct string `json:"l3pct"`
+	LLPct string `json:"llpct"`
+	RD    string `json:"rd"`
+	RO    string `json:"ro"`
+	TR    string `json:"tr"`
+	AS    string `json:"as"`
+}
+
+func ScrapeTugaBasketTeams(html string) []TBTeamStat {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil { return nil }
+	var teams []TBTeamStat
+	doc.Find("table tbody tr").Each(func(_ int, row *goquery.Selection) {
+		cells := row.Find("td")
+		if cells.Length() < 3 { return }
+		t := TBTeamStat{}
+		t.Name = strings.TrimSpace(cells.Eq(0).Text())
+		t.Games = atoi(strings.TrimSpace(cells.Eq(1).Text()))
+		if cells.Length() > 2 { t.PTS = strings.TrimSpace(cells.Eq(2).Text()) }
+		if cells.Length() > 3 { t.L2Pct = strings.TrimSpace(cells.Eq(3).Text()) }
+		if cells.Length() > 4 { t.L3Pct = strings.TrimSpace(cells.Eq(4).Text()) }
+		if cells.Length() > 5 { t.LLPct = strings.TrimSpace(cells.Eq(5).Text()) }
+		if cells.Length() > 6 { t.RD = strings.TrimSpace(cells.Eq(6).Text()) }
+		if cells.Length() > 7 { t.RO = strings.TrimSpace(cells.Eq(7).Text()) }
+		if cells.Length() > 8 { t.TR = strings.TrimSpace(cells.Eq(8).Text()) }
+		if cells.Length() > 9 { t.AS = strings.TrimSpace(cells.Eq(9).Text()) }
+		if t.Name != "" { teams = append(teams, t) }
+	})
+	return teams
+}

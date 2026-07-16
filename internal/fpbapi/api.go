@@ -197,3 +197,17 @@ func (f *FPBAPI) GetTugaBasketPlayers(competitionID string) ([]scraper.TBPlayerS
 	f.cache.Set(key, raw2, cache.TTLStandings)
 	return p, nil
 }
+
+func (f *FPBAPI) GetTugaBasketTeams(competitionID string) ([]scraper.TBTeamStat, error) {
+	key := cache.CacheKey("tugabasket_teams", competitionID)
+	if raw, ok := f.cache.Get(key); ok {
+		var t []scraper.TBTeamStat
+		if err := json.Unmarshal(raw, &t); err == nil { return t, nil }
+	}
+	body, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/stats/teams?competitionId=%s", competitionID))
+	if err != nil { return nil, err }
+	t := scraper.ScrapeTugaBasketTeams(string(body))
+	raw2, _ := json.Marshal(t)
+	f.cache.Set(key, raw2, cache.TTLStandings)
+	return t, nil
+}

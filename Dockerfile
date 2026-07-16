@@ -5,7 +5,8 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X github.com/mefrraz/bounce/internal/api.Version=$(cat VERSION)" -o /bounce ./cmd/server
+RUN cp VERSION internal/api/VERSION
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bounce ./cmd/server
 
 # Stage 2: runtime (~15MB total)
 FROM alpine:3.21

@@ -1,20 +1,26 @@
 package api
 
 import (
+	_ "embed"
 	"encoding/json"
 	"net/http"
+	"strings"
 )
 
-// Version is set at build time via ldflags.
-var Version = "0.1.0"
+//go:embed VERSION
+var versionRaw string
 
-// HealthResponse is the JSON payload for GET /health.
+var Version = strings.TrimSpace(versionRaw)
+
+func init() {
+	if Version == "" { Version = "dev" }
+}
+
 type HealthResponse struct {
 	Status  string `json:"status"`
 	Version string `json:"version"`
 }
 
-// Health returns the server health status.
 func Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
