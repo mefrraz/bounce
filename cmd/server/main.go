@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
+	"runtime"
 	"os/signal"
 	"path/filepath"
 	"syscall"
@@ -92,7 +94,16 @@ r.Get("/docs/", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w,
 	srv.Shutdown(shutdownCtx)
 }
 
+var startTime = time.Now()
+
+func init() { startTime = time.Now() }
+
 func metricsHandler(w http.ResponseWriter, _ *http.Request) {
+	uptime := int(time.Since(startTime).Seconds())
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte("# HELP bounce_uptime_seconds Uptime\n# TYPE bounce_uptime_seconds counter\nbounce_uptime_seconds 0\n"))
+	fmt.Fprintf(w, "# HELP bounce_uptime_seconds Uptime in seconds\n# TYPE bounce_uptime_seconds gauge\nbounce_uptime_seconds %d\n", uptime)
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Fprintf(w, "# HELP bounce_goroutines Number of goroutines\n# TYPE bounce_goroutines gauge\nbounce_goroutines %d\n", runtime.NumGoroutine())
+	fmt.Fprintf(w, "# HELP bounce_memory_bytes Allocated memory\n# TYPE bounce_memory_bytes gauge\nbounce_memory_bytes %d\n", m.Alloc)
 }

@@ -212,3 +212,29 @@ func (f *FPBAPI) GetTugaBasketTeams(competitionID string) ([]scraper.TBTeamStat,
 	f.cache.Set(key, raw2, cache.TTLStandings)
 	return t, nil
 }
+
+func (f *FPBAPI) GetGamesByCompetition(compID, season string) ([]models.Game, error) {
+	key := cache.CacheKey("games", "comp", compID, season)
+	if raw, ok := f.cache.Get(key); ok {
+		var g []models.Game
+		if err := json.Unmarshal(raw, &g); err == nil { return g, nil }
+	}
+	p := url.Values{}
+	p.Set("action", "get_results")
+	p.Set("epoca", season)
+	p.Set("competicao[]", compID)
+	body, err := f.http.Get(fpbBase + "/wp-admin/admin-ajax.php?" + p.Encode())
+	if err != nil { return nil, err }
+	var ar struct{ Result interface{}; Hasmore bool }
+	if err := json.Unmarshal(body, &ar); err != nil { return nil, err }
+	var h strings.Builder
+	switch v := ar.Result.(type) {
+	case string: h.WriteString(v)
+	case []interface{}:
+		for _, item := range v { if s, ok := item.(string); ok { h.WriteString(s) } }
+	}
+	g := scraper.ScrapeGames(h.String(), "FINALIZADO")
+	raw2, _ := json.Marshal(g)
+	f.cache.Set(key, raw2, cache.TTLStandings)
+	return g, nil
+}
