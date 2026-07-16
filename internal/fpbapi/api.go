@@ -7,7 +7,9 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/httpclient"
 	"github.com/mefrraz/bounce/internal/models"
@@ -47,12 +49,13 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	parts := strings.Split(season, "/")
 	if len(parts) != 2 { return nil, fmt.Errorf("invalid season: %s", season) }
 	ys, ye := parts[0], parts[1]
+
 	p := url.Values{}
 	p.Set("action", "get_more_days")
 	p.Set("epoca", season); p.Set("clube", clubID)
 	p.Set("period[time_option]", "fromInit")
 	p.Set("period[from_date]", ys+"/09/01")
-	p.Set("period[to_date]", ye+"/06/30")
+	p.Set("period[to_date]", ye+"/07/31")
 	body, err := f.http.Get(fpbBase + "/wp-admin/admin-ajax.php?" + p.Encode())
 	if err != nil { return nil, err }
 	var ar struct{ Result interface{}; Hasmore bool }
@@ -64,42 +67,44 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 		for _, item := range v { if s, ok := item.(string); ok { h.WriteString(s) } }
 	}
 	all := scraper.ScrapeGames(h.String(), "FINALIZADO")
-	tb := f.fetchTugaScores()
-	for i := range all {
-		if all[i].HomeScore != nil { continue }
-		isoD := scraper.ParseDatePt(all[i].Date)
-		for _, t := range tb {
-			if matchTeam(all[i].HomeTeam, t.HomeTeam) && matchTeam(all[i].AwayTeam, t.AwayTeam) && (isoD == t.Date || all[i].Date == t.Date || strings.Contains(all[i].Date, t.Date) || strings.Contains(t.Date, isoD)) {
-				s := strings.Split(t.Score, ":")
-				if len(s) == 2 {
-					hs, as := atoi2(s[0]), atoi2(s[1])
-					all[i].HomeScore = &hs; all[i].AwayScore = &as; all[i].Status = "FINALIZADO"
-				}
-				break
-			}
-		}
-	}
 	log.Printf("[games] %d for club %s season %s", len(all), clubID, season)
+
+	// Enrich scores via get_game_layer POST
+	scored := 0
+	for i := range all {
+		if all[i].HomeScore != nil { scored++; continue }
+		gs := f.fetchScore(all[i].ID)
+		if gs != nil {
+			all[i].HomeScore = gs.HomeScore
+			all[i].AwayScore = gs.AwayScore
+			all[i].Status = "FINALIZADO"
+			scored++
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	log.Printf("[scores] %d/%d enriched for club %s season %s", scored, len(all), clubID, season)
+
 	raw2, _ := json.Marshal(all)
 	f.cache.Set(key, raw2, cache.TTLToday)
 	return all, nil
 }
 
-func (f *FPBAPI) fetchTugaScores() []scraper.TBGameResult {
-	var a []scraper.TBGameResult
-	for _, cid := range []string{"10902","10903","10904","10906","10907"} {
-		b, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/getCompetitionDetails?competitionId=%s", cid))
-		if err != nil { continue }
-		a = append(a, scraper.ScrapeTugaBasketGames(string(b))...)
-	}
-	return a
-}
+type gameScore struct{ HomeScore, AwayScore *int }
 
-func matchTeam(a, b string) bool {
-	a, b = strings.ToUpper(strings.TrimSpace(a)), strings.ToUpper(strings.TrimSpace(b))
-	if a == b { return true }
-	if len(a) > 5 && len(b) > 5 && (strings.Contains(a, b) || strings.Contains(b, a)) { return true }
-	return false
+func (f *FPBAPI) fetchScore(internalID string) *gameScore {
+	body := "action=get_game_layer&matchId=" + internalID
+	resp, err := f.http.Post(fpbBase+"/wp-admin/admin-ajax.php", body)
+	if err != nil { return nil }
+	var layer struct{ Header string `json:"header"` }
+	if err := json.Unmarshal(resp, &layer); err != nil || layer.Header == "" { return nil }
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(layer.Header))
+	if err != nil { return nil }
+	spans := doc.Find(".points span")
+	if spans.Length() < 2 { return nil }
+	h := atoi2(strings.TrimSpace(spans.Eq(0).Text()))
+	a := atoi2(strings.TrimSpace(spans.Eq(1).Text()))
+	if h == 0 && a == 0 { return nil }
+	return &gameScore{HomeScore: &h, AwayScore: &a}
 }
 
 func atoi2(s string) int {
