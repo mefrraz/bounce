@@ -107,6 +107,7 @@ Bounce <span class="dim">/ dashboard</span>
 
 <div class="toolbar">
 <div class="range-bar" id="rangeBar">
+<button class="range-btn" data-minutes="1">1m</button>
 <button class="range-btn active" data-minutes="5">5m</button>
 <button class="range-btn" data-minutes="60">1h</button>
 <button class="range-btn" data-minutes="360">6h</button>
@@ -176,7 +177,7 @@ Bounce <span class="dim">/ dashboard</span>
 
 <script>
 (function(){
-const RANGE_LABELS={5:'últimos 5 minutos',60:'última 1 hora',360:'últimas 6 horas',1440:'últimas 24 horas',10080:'últimos 7 dias'};
+const RANGE_LABELS={1:'último 1 minuto',5:'últimos 5 minutos',60:'última 1 hora',360:'últimas 6 horas',1440:'últimas 24 horas',10080:'últimos 7 dias'};
 const REFRESH_LABELS={live:'WebSocket',5:'a cada 5s',15:'a cada 15s',60:'a cada 60s'};
 let currentMinutes=5,refreshMode='live',refreshSecs=0,refreshTimer=null,isFetching=false,lastSnapshots=[],ws=null;
 
@@ -214,6 +215,8 @@ return
 }
 
 var values=series.map(function(p){return p.value}),max=Math.max.apply(Math,values),min=Math.min.apply(Math,values);
+if(opts.maxCap!==undefined&&max>opts.maxCap)max=opts.maxCap;
+if(opts.minCap!==undefined&&min<opts.minCap)min=opts.minCap;
 if(max===min){max=max+1;min=Math.max(0,min-1)}
 var range=max-min||1;
 
@@ -291,7 +294,7 @@ var cacheSeries=snapshots.map(function(s){return{value:computeCacheRate(s)}});
 var fpbSeries=snapshots.map(function(s,i){return{value:i>0?Math.max(0,s.fpbRequests-(snapshots[i-1]||s).fpbRequests):0}});
 
 drawLineChart(canvases.requests,reqSeries,'#ff6b35');
-drawLineChart(canvases.cache,cacheSeries,'#4fc3f7',{suffix:'%'});
+drawLineChart(canvases.cache,cacheSeries,'#4fc3f7',{suffix:'%',minCap:0,maxCap:100});
 drawLineChart(canvases.fpb,fpbSeries,'#22c55e');
 
 var last=snapshots[snapshots.length-1];
@@ -320,7 +323,7 @@ function updateFooter(){}
 function scheduleRefresh(){
 if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null}
 if(ws){try{ws.close()}catch(e){}}
-if(refreshMode==='live'){connectWS();return}
+if(refreshMode==='live'){connectWS();refreshTimer=setInterval(fetchMetrics,30000);return}
 refreshSecs=parseInt(refreshMode)||10;
 refreshTimer=setInterval(fetchMetrics,refreshSecs*1000)
 }
@@ -350,7 +353,23 @@ function connectWS(){
 try{
 ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/dashboard');
 ws.onopen=function(){setLive(true)};
-ws.onmessage=function(e){try{var d=JSON.parse(e.data);$('mRequests').textContent=fmtNumber(d.requests||0);$('mFpb').textContent=fmtNumber(d.fpb_requests||0);$('mLimited').textContent=fmtNumber(d.rate_limited||0);$('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())}catch(ex){}};
+let lastWs={requests:0,cacheHits:0,cacheMisses:0,fpb:0,limited:0};
+ws.onmessage=function(e){try{var d=JSON.parse(e.data);
+var r=d.requests||0,ch=d.cache_hits||0,cm=d.cache_misses||0,fp=d.fpb_requests||0,rl=d.rate_limited||0;
+var total=ch+cm,rate=total>0?Math.round(ch/total*100):0;
+$('mRequests').textContent=fmtNumber(r);
+$('mCache').textContent=rate+'%';
+$('mFpb').textContent=fmtNumber(fp);
+$('mLimited').textContent=fmtNumber(rl);
+$('lastUpdate').textContent='Última atualização: '+fmtTime(new Date());
+// sub-texts
+function subEl(id,curr,prev,u){var el=$(id);if(!el)return;var diff=curr-prev;if(diff===0){el.innerHTML='— sem alteração';return}var cls=diff>0?'trend-up':'trend-down',arrow=diff>0?'▲':'▼';el.innerHTML='<span class="'+cls+'">'+arrow+' '+Math.abs(diff).toLocaleString('pt-PT')+(u||'')+'</span> vs anterior'}
+subEl('mRequestsSub',r,lastWs.requests);
+subEl('mCacheSub',rate,lastWs.cacheHits+lastWs.cacheMisses>0?Math.round(lastWs.cacheHits/(lastWs.cacheHits+lastWs.cacheMisses)*100):0,'%');
+subEl('mFpbSub',fp,lastWs.fpb);
+subEl('mLimitedSub',rl,lastWs.limited);
+lastWs={requests:r,cacheHits:ch,cacheMisses:cm,fpb:fp,limited:rl}
+}catch(ex){}};
 ws.onclose=function(){if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
 }catch(ex){}
 }
