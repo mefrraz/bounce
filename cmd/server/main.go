@@ -64,8 +64,6 @@ rl := newRateLimiter(100, time.Minute)
 r.Use(rl.middleware)
 
 r.Get("/health", apihandler.Health)
-r.Get("/test", apihandler.TestPage)
-r.Get("/app", apihandler.AppPage)
 r.Get("/metrics", metricsHandler)
 r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/swagger.json") })
 r.Get("/docs", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })

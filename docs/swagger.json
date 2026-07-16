@@ -3,9 +3,9 @@
   "info": {
     "title": "Bounce API",
     "description": "Smart Sports Data Proxy for Portuguese basketball. FPB + TugaBasket data.",
-    "version": "4.2.0"
+    "version": "5.1.0"
   },
-  "host": "localhost:3001",
+  
   "basePath": "/",
   "schemes": ["http"],
   "produces": ["application/json"],
