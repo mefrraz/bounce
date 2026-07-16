@@ -14,9 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	httpSwagger "github.com/swaggo/http-swagger"
 
-	_ "github.com/mefrraz/bounce/docs"
 	apihandler "github.com/mefrraz/bounce/internal/api"
 	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/fpbapi"
@@ -53,7 +51,7 @@ func main() {
 		func(internalID string) (*models.Game, error) {
 			detail, err := fpb.GetGame(internalID)
 			if err != nil { return nil, err }
-			return &detail.Game, nil
+				return &detail.Game, nil
 		},
 		func() ([]models.Game, error) { return nil, nil },
 		func(game models.Game) {
@@ -68,24 +66,25 @@ func main() {
 		func(gameID string) { sched.UnscheduleGame(gameID) },
 	)
 
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.RealIP)
-	r.Use(cors.Handler(cors.Options{
+		r := chi.NewRouter()
+		r.Use(middleware.Logger)
+		r.Use(middleware.Recoverer)
+		r.Use(middleware.RealIP)
+		r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{"*"}, AllowedMethods: []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders: []string{"Content-Type", "Authorization"},
 		AllowCredentials: false, MaxAge: 86400,
 	}))
 
-	r.Get("/health", apihandler.Health)
-	r.Get("/test", apihandler.TestPage)
-	r.Get("/app", apihandler.AppPage)
-	r.Get("/metrics", metricsHandler)
-	r.Get("/docs", func(w http.ResponseWriter, r *http.Request) {
+		r.Get("/health", apihandler.Health)
+		r.Get("/test", apihandler.TestPage)
+		r.Get("/app", apihandler.AppPage)
+		r.Get("/metrics", metricsHandler)
+r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/swagger.json") })
+		r.Get("/docs", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
+		r.Get("/docs", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/docs/index.html", http.StatusMovedPermanently)
 	})
-	r.Get("/docs/*", httpSwagger.WrapHandler)
 
 	handler := apihandler.NewHandler(fpb)
 	handler.RegisterRoutes(r)

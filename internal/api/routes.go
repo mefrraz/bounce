@@ -38,6 +38,25 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 // GetGames supports:
 //   ?club=ID&season=2025/2026&category=Senior&gender=masculino
 //   ?competition=ID&page=calendario|resultados
+// GetGames godoc
+// @Summary      List club games with scores
+// @Description  Returns all games for a club in a season from FPB.
+// @Tags         games
+// @Produce      json
+// @Param        club    query     int     true  "Club ID"  example(119)
+// @Param        season  query     string  true  "Season YYYY/YYYY"  example(2025/2026)
+// @Success      200     {array}   models.Game
+// @Router       /api/games [get]
+
+// GetGame godoc
+// @Summary      Game detail with scores
+// @Description  Returns full game detail: teams, score, periods, logos.
+// @Tags         games
+// @Produce      json
+// @Param        id   path      string  true  "Internal game ID"
+// @Success      200  {object}  models.GameDetail
+// @Router       /api/game/{id} [get]
+
 func (h *Handler) GetGames(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	club := q.Get("club")
@@ -73,6 +92,15 @@ func (h *Handler) GetGames(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, []interface{}{})
 }
 
+// GetStandings godoc
+// @Summary      Competition standings
+// @Description  Returns the classification table for a competition.
+// @Tags         competitions
+// @Produce      json
+// @Param        compID   path      string  true  "Competition ID"  example(10902)
+// @Success      200      {array}   models.Standing
+// @Router       /api/standings/{compID} [get]
+
 func (h *Handler) GetStandings(w http.ResponseWriter, r *http.Request) {
 	compID := chi.URLParam(r, "compID")
 	standings, err := h.FPB.GetStandings(compID)
@@ -82,6 +110,15 @@ func (h *Handler) GetStandings(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, standings)
 }
+
+// GetGame godoc
+// @Summary      Game detail with scores
+// @Description  Returns full game detail: teams, score, periods, logos.
+// @Tags         games
+// @Produce      json
+// @Param        id   path      string  true  "Internal game ID"
+// @Success      200  {object}  models.GameDetail
+// @Router       /api/game/{id} [get]
 
 func (h *Handler) GetGame(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "internalID")
@@ -93,6 +130,14 @@ func (h *Handler) GetGame(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, game)
 }
 
+// GetCompetitions godoc
+// @Summary      List competitions
+// @Description  Returns known competitions from FPB.
+// @Tags         competitions
+// @Produce      json
+// @Success      200  {array}   models.Competition
+// @Router       /api/competitions [get]
+
 func (h *Handler) GetCompetitions(w http.ResponseWriter, r *http.Request) {
 	comps, err := h.FPB.GetCompetitions()
 	if err != nil {
@@ -101,6 +146,15 @@ func (h *Handler) GetCompetitions(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, comps)
 }
+
+// GetAthlete godoc
+// @Summary      Athlete profile
+// @Description  Returns athlete data: name, photo, position, club, stats.
+// @Tags         athletes
+// @Produce      json
+// @Param        id   path      string  true  "Athlete ID"
+// @Success      200  {object}  scraper.AthleteData
+// @Router       /api/athlete/{id} [get]
 
 func (h *Handler) GetAthlete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
@@ -132,6 +186,15 @@ func (h *Handler) GetClubTeams(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, teams)
 }
 
+// GetTugaBasketStandings godoc
+// @Summary      TugaBasket standings
+// @Description  Returns standings from TugaBasket for a competition.
+// @Tags         tugabasket
+// @Produce      json
+// @Param        competitionId   query     string  true  "Competition ID"
+// @Success      200             {array}   scraper.TugaBasketStanding
+// @Router       /api/tugabasket/standings [get]
+
 func (h *Handler) GetTugaBasketStandings(w http.ResponseWriter, r *http.Request) {
 	compID := r.URL.Query().Get("competitionId")
 	if compID == "" {
@@ -146,6 +209,15 @@ func (h *Handler) GetTugaBasketStandings(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, standings)
 }
 
+// GetTugaBasketPlayers godoc
+// @Summary      TugaBasket player stats
+// @Description  Returns individual player statistics (22 fields).
+// @Tags         tugabasket
+// @Produce      json
+// @Param        competitionId   query     string  true  "Competition ID"
+// @Success      200             {array}   scraper.TBPlayerStat
+// @Router       /api/tugabasket/players [get]
+
 func (h *Handler) GetTugaBasketPlayers(w http.ResponseWriter, r *http.Request) {
 	compID := r.URL.Query().Get("competitionId")
 	if compID == "" {
@@ -159,6 +231,15 @@ func (h *Handler) GetTugaBasketPlayers(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, players)
 }
+
+// GetTugaBasketTeams godoc
+// @Summary      TugaBasket team stats
+// @Description  Returns aggregated team statistics.
+// @Tags         tugabasket
+// @Produce      json
+// @Param        competitionId   query     string  true  "Competition ID"
+// @Success      200             {array}   scraper.TBTeamStat
+// @Router       /api/tugabasket/teams [get]
 
 func (h *Handler) GetTugaBasketTeams(w http.ResponseWriter, r *http.Request) {
 	compID := r.URL.Query().Get("competitionId")

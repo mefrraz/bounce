@@ -1,12 +1,147 @@
 {
-    "swagger": "2.0",
-    "info": {
-        "description": "Smart Sports Data Proxy for Portuguese basketball. Aggregates data from FPB and TugaBasket.",
-        "title": "Bounce API",
-        "contact": {},
-        "version": "4.1.0"
+  "swagger": "2.0",
+  "info": {
+    "title": "Bounce API",
+    "description": "Smart Sports Data Proxy for Portuguese basketball. FPB + TugaBasket data.",
+    "version": "4.2.0"
+  },
+  "host": "localhost:3001",
+  "basePath": "/",
+  "schemes": ["http"],
+  "produces": ["application/json"],
+  "paths": {
+    "/api/games": {
+      "get": {
+        "tags": ["games"],
+        "summary": "List club games with scores",
+        "parameters": [
+          {"name": "club", "in": "query", "type": "integer", "required": true, "description": "Club ID (119=Benfica)"},
+          {"name": "season", "in": "query", "type": "string", "required": true, "description": "Season YYYY/YYYY", "default": "2025/2026"}
+        ],
+        "responses": {"200": {"description": "Array of games"}}
+      }
     },
-    "host": "localhost:3001",
-    "basePath": "/",
-    "paths": {}
+    "/api/game/{id}": {
+      "get": {
+        "tags": ["games"],
+        "summary": "Game detail with scores and periods",
+        "parameters": [
+          {"name": "id", "in": "path", "type": "string", "required": true, "description": "Internal game ID"}
+        ],
+        "responses": {"200": {"description": "Game detail"}}
+      }
+    },
+    "/api/standings/{compID}": {
+      "get": {
+        "tags": ["competitions"],
+        "summary": "Competition standings",
+        "parameters": [
+          {"name": "compID", "in": "path", "type": "string", "required": true, "description": "Competition ID", "default": "10902"}
+        ],
+        "responses": {"200": {"description": "Array of standings"}}
+      }
+    },
+    "/api/competitions": {
+      "get": {
+        "tags": ["competitions"],
+        "summary": "List competitions",
+        "responses": {"200": {"description": "Array of competitions"}}
+      }
+    },
+    "/api/athlete/{id}": {
+      "get": {
+        "tags": ["athletes"],
+        "summary": "Athlete profile",
+        "parameters": [
+          {"name": "id", "in": "path", "type": "string", "required": true}
+        ],
+        "responses": {"200": {"description": "Athlete data"}}
+      }
+    },
+    "/api/team/{id}": {
+      "get": {
+        "tags": ["teams"],
+        "summary": "Team detail",
+        "parameters": [
+          {"name": "id", "in": "path", "type": "string", "required": true}
+        ],
+        "responses": {"200": {"description": "Team data"}}
+      }
+    },
+    "/api/club/{clubID}/teams": {
+      "get": {
+        "tags": ["clubs"],
+        "summary": "Club teams list",
+        "parameters": [
+          {"name": "clubID", "in": "path", "type": "string", "required": true}
+        ],
+        "responses": {"200": {"description": "Array of teams"}}
+      }
+    },
+    "/api/tugabasket/standings": {
+      "get": {
+        "tags": ["tugabasket"],
+        "summary": "TugaBasket standings",
+        "parameters": [
+          {"name": "competitionId", "in": "query", "type": "string", "required": true}
+        ],
+        "responses": {"200": {"description": "Array of standings"}}
+      }
+    },
+    "/api/tugabasket/players": {
+      "get": {
+        "tags": ["tugabasket"],
+        "summary": "TugaBasket player stats (22 fields)",
+        "parameters": [
+          {"name": "competitionId", "in": "query", "type": "string", "required": true}
+        ],
+        "responses": {"200": {"description": "Array of players"}}
+      }
+    },
+    "/api/tugabasket/teams": {
+      "get": {
+        "tags": ["tugabasket"],
+        "summary": "TugaBasket team stats",
+        "parameters": [
+          {"name": "competitionId", "in": "query", "type": "string", "required": true}
+        ],
+        "responses": {"200": {"description": "Array of team stats"}}
+      }
+    },
+    "/api/elo": {
+      "get": {
+        "tags": ["insights"],
+        "summary": "ELO ranking",
+        "responses": {"200": {"description": "ELO data"}}
+      }
+    },
+    "/api/predictions/{gameID}": {
+      "get": {
+        "tags": ["insights"],
+        "summary": "Game prediction (win probability)",
+        "parameters": [
+          {"name": "gameID", "in": "path", "type": "string", "required": true}
+        ],
+        "responses": {"200": {"description": "Prediction"}}
+      }
+    },
+    "/api/h2h": {
+      "get": {
+        "tags": ["insights"],
+        "summary": "Head-to-head history",
+        "parameters": [
+          {"name": "team_a", "in": "query", "type": "string", "required": true},
+          {"name": "team_b", "in": "query", "type": "string", "required": true}
+        ],
+        "responses": {"200": {"description": "H2H data"}}
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Health check",
+        "responses": {"200": {"description": "Server status"}}
+      }
+    }
+  }
 }
