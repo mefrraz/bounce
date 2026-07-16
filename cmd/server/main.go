@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"github.com/mefrraz/bounce/internal/docs"
 	"github.com/mefrraz/bounce/internal/metrics"
 	"github.com/mefrraz/bounce/internal/cache"
 	"runtime"
@@ -77,12 +78,11 @@ r.Use(rl.middleware)
 r.Get("/test", apihandler.TestPage)
 r.Get("/", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/dashboard", 302) })
 r.Get("/health", apihandler.Health)
+r.Get("/docs", docs.Handler)
 r.Get("/metrics", metricsHandler)
 r.Get("/api/metrics/history", metrics.HistoryHandler)
 r.Get("/api/metrics/history/simple", metrics.HistoryHandlerSimple)
 r.Get("/dashboard", metrics.DashboardHandler)
-r.Get("/docs", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
-r.Get("/docs/", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
 
 	apihandler.NewHandler(fpb).RegisterRoutes(r)
 	hub.RegisterRoutes(r)
