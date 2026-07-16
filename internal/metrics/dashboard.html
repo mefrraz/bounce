@@ -207,6 +207,16 @@ Bounce <span class="dim">/ dashboard</span>
 </div>
 </section>
 
+<section class="charts-grid" style="grid-template-columns:1fr;margin-top:14px">
+<div class="chart-card">
+<div class="chart-head">
+<div class="chart-title"><span class="dot" style="background:var(--accent)"></span>Total Requests (cumulativo)</div>
+<div class="chart-current" id="chartTotalCurrent">–</div>
+</div>
+<canvas class="chart-canvas" id="chartTotal" style="height:120px"></canvas>
+</div>
+</section>
+
 </main>
 
 <script>
@@ -217,7 +227,7 @@ let currentMinutes=5,refreshMode='live',refreshSecs=0,refreshTimer=null,isFetchi
 
 function $(id){return document.getElementById(id)}
 
-const canvases={requests:$('chartRequests'),cache:$('chartCache'),fpb:$('chartFpb')};
+const canvases={requests:$('chartRequests'),cache:$('chartCache'),fpb:$('chartFpb'),total:$('chartTotal')};
 
 function fmtNumber(n){if(n===null||n===undefined||isNaN(n))return'–';return Number(n).toLocaleString('pt-PT')}
 function fmtUptime(sec){if(!sec||sec<0)return'–';var d=Math.floor(sec/86400),h=Math.floor((sec%86400)/3600),m=Math.floor((sec%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m '+Math.floor(sec%60)+'s'}
@@ -283,7 +293,7 @@ ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
 // last point marker
 var lastX=xAt(pts.length-1),lastY=yAt(pts[pts.length-1].value);
 ctx.beginPath();ctx.arc(lastX,lastY,3.5,0,Math.PI*2);
-ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=8;ctx.fill();ctx.shadowBlur=0;
+ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=4;ctx.fill();ctx.shadowBlur=0;
 
 // x-axis labels
 if(opts.xLabels){
@@ -329,7 +339,7 @@ $('mLimited').textContent=fmtNumber(latest.rateLimited);
 
 function subText(el,curr,prevVal,unit){if(snapshots.length<2){el.textContent='primeiro snapshot';return}var vsLabel='vs ha '+(currentMinutes>=1440?Math.round(currentMinutes/1440)+'d':currentMinutes>=60?Math.round(currentMinutes/60)+'h':currentMinutes+'m');var diff=curr-prevVal;if(diff===0){el.innerHTML='— sem alteração '+vsLabel;return}var cls=diff>0?'trend-up':'trend-down',arrow=diff>0?'▲':'▼';el.innerHTML='<span class="'+cls+'">'+arrow+' '+Math.abs(diff).toLocaleString('pt-PT')+(unit||'')+'</span> '+vsLabel}
 subText($('mRequestsSub'),latest.requests,first.requests);
-subText($('mCacheSub'),Math.round(computeCacheRate(latest)),Math.round(computeCacheRate(first)),'%');
+if(first)subText($('mCacheSub'),Math.round(computeCacheRate(latest)),Math.round(computeCacheRate(first)),'%');else $('mCacheSub').textContent='primeiro snapshot';
 subText($('mFpbSub'),latest.fpbRequests,first.fpbRequests);
 subText($('mLimitedSub'),latest.rateLimited,first.rateLimited)
 }
@@ -398,7 +408,12 @@ drawLineChart(canvases.fpb,fpbSeries,'#22c55e',{xLabels:xLabels});
 var last=snapshots[snapshots.length-1];
 $('chartRequestsCurrent').textContent=last?fmtNumber(last.requests):'–';
 $('chartCacheCurrent').textContent=last?Math.round(computeCacheRate(last))+'%':'–';
-$('chartFpbCurrent').textContent=last?fmtNumber(last.fpbRequests):'–'
+$('chartFpbCurrent').textContent=last?fmtNumber(last.fpbRequests):'–';
+// Cumulative total requests (full-width chart)
+var cumSeries=[],cum=0;
+for(var b=0;b<buckets.length;b++){cum+=buckets[b].reqSum;cumSeries.push({time:fmtLabel(buckets[b].time),value:cum})}
+drawLineChart(canvases.total,cumSeries,'#ff6b35',{xLabels:xLabels});
+$('chartTotalCurrent').textContent=last?fmtNumber(last.requests):'–'
 }
 
 async function fetchMetrics(){
