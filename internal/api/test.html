@@ -23,6 +23,7 @@ nav.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;just
 .toggle-btn:hover{color:var(--text)}
 .toggle-btn svg{display:block}
 main{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+.page-head{margin-bottom:22px}.page-head h1{font-size:22px;font-weight:600}.page-head p{color:var(--muted);font-size:13px;margin-top:2px}
 .endpoints-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .endpoint-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px}
 .endpoint-card.get{border-left:3px solid var(--data)}
@@ -72,6 +73,7 @@ pre.resp-box.error{color:var(--red)}
 </nav>
 
 <main>
+<div class="page-head"><h1>API Test</h1><p>Testa cada endpoint diretamente do browser</p></div>
 <section class="endpoints-grid" id="grid"></section>
 <section class="ws-card">
 <div style="font-size:14px;font-weight:600;margin-bottom:12px">WebSocket /ws/game/{id}</div>
