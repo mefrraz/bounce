@@ -69,7 +69,10 @@ func main() {
 	}
 
 r := chi.NewRouter()
-r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
+r.Use(middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
+if os.Getenv("BOUNCE_QUIET") == "" {
+	r.Use(middleware.Logger)
+}
 r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{corsOrigin}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
 
 rl := newRateLimiter(100, time.Minute)
