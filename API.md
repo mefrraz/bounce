@@ -2,6 +2,7 @@
 
 > Proxy inteligente de dados desportivos para basquetebol português.
 > Base URL: `http://localhost:3001`
+> **v2.0** — 222 jogos + scores em 2.5s via `get_results`
 
 ---
 
@@ -25,18 +26,21 @@
 
 ### `GET /api/games?club=ID&season=YYYY/YYYY`
 
-Jogos de um clube numa época. **Um pedido devolve todas as categorias.**
+Jogos de um clube numa época **com scores**. Um pedido = todos os jogos.
 
 | Parâmetro | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
 | `club` | integer | ✅ | ID do clube (ex: 119=Benfica, 127=Porto, 169=Sporting) |
 | `season` | string | ✅ | Época no formato `YYYY/YYYY`. Disponível desde `2003/2004`. |
 
+**Tempo:** ~2.5s (1 pedido HTTP ao `get_results` da FPB)
+**Cache:** SQLite permanente após primeiro pedido
+
 ```bash
 curl "http://localhost:3001/api/games?club=119&season=2025/2026"
 ```
 
-**Resposta (206-366 jogos):**
+**Resposta (222 jogos):**
 ```json
 [
   {
