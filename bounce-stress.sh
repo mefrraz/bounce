@@ -1,12 +1,12 @@
 #!/bin/bash
-# bounce-stress.sh — 2-minute stress test: 100+ simulated users browsing
+# bounce-stress.sh — 2-minute stress test: 200+ simulated users browsing
 # Usage: ./bounce-stress.sh [host] [users] [duration_secs]
 #   host defaults to localhost:3001
-#   users defaults to 120
+#   users defaults to 200
 #   duration defaults to 120 (seconds)
 
 HOST="${1:-localhost:3001}"
-USERS="${2:-120}"
+USERS="${2:-200}"
 DURATION="${3:-120}"
 BASE="http://$HOST"
 
@@ -16,7 +16,6 @@ echo -e "${GREEN}═══ Bounce Stress Test ═══${NC}"
 echo -e "Host: ${CYAN}$BASE${NC}   Users: ${CYAN}$USERS${NC}   Duration: ${CYAN}${DURATION}s${NC}"
 echo ""
 
-# Browse-like endpoints (simulating real user navigation)
 ENDPOINTS=(
   "GET /dashboard"
   "GET /docs"
@@ -45,18 +44,17 @@ total=0 ok=0 err=0
 running=true
 deadline=$((SECONDS + DURATION))
 
-# Stats trackers per second
-declare -a reqs_per_sec
-for ((i=0;i<DURATION;i++)); do reqs_per_sec[$i]=0; done
-sec_total=0
+# Stats trackers
+reqs_per_sec=()
+for ((i=0;i<=DURATION;i++)); do reqs_per_sec[$i]=0; done
 
 # Worker: browse like a real user
 browse() {
   local id=$1
   while $running; do
     for ep in "${ENDPOINTS[@]}"; do
-      $running || break
-      read method path <<< "$ep"
+      $running || return
+      read -r method path <<< "$ep"
       code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$BASE$path" 2>/dev/null)
       if [ "$code" = "200" ] || [ "$code" = "302" ]; then
         ((ok++))
@@ -64,9 +62,10 @@ browse() {
         ((err++))
       fi
       ((total++))
-      ((reqs_per_sec[$((SECONDS - start_time))]++))
-      # Simulate read time (100-500ms)
-      sleep 0.$(( RANDOM % 40 + 10 )) 2>/dev/null || true
+      local idx=$((SECONDS - start_time))
+      [ "$idx" -ge 0 ] 2>/dev/null && [ "$idx" -le "$DURATION" ] 2>/dev/null && ((reqs_per_sec[idx]++))
+      # Simulate read time (0.1-0.5s)
+      sleep "0.$(( RANDOM % 40 + 10 ))" 2>/dev/null || sleep 0.2 2>/dev/null || true
     done
   done
 }
@@ -74,9 +73,15 @@ browse() {
 echo -e "${YELLOW}Launching $USERS workers...${NC}"
 start_time=$SECONDS
 
-# Spawn workers
-for ((i=0; i<USERS; i++)); do
-  browse "$i" &
+# Spawn workers in batches to avoid fork bombs
+BATCH=20
+for ((i=0; i<USERS; i+=BATCH)); do
+  end=$((i + BATCH))
+  [ "$end" -gt "$USERS" ] && end=$USERS
+  for ((j=i; j<end; j++)); do
+    browse "$j" &
+  done
+  sleep 0.3 2>/dev/null || true
 done
 
 # Display loop
@@ -84,8 +89,8 @@ while [ $SECONDS -lt $deadline ]; do
   elapsed=$((SECONDS - start_time))
   remaining=$((DURATION - elapsed))
   rps=${reqs_per_sec[$elapsed]:-0}
-  total_rps=$((total / (elapsed + 1)))
-  printf "\r${CYAN}%s${NC}  %4ds | total=%5d ok=${GREEN}%5d${NC} err=${RED}%3d${NC} | rps=%4d avg=%4d | remaining=%3ds  " \
+  total_rps=$(( total / (elapsed + 1) ))
+  printf "\r${CYAN}%s${NC}  %4ds | total=%6d ok=${GREEN}%6d${NC} err=${RED}%4d${NC} | rps=%4d avg=%4d | %3ds  " \
     "${spinner[$((elapsed%10))]}" "$elapsed" "$total" "$ok" "$err" "$rps" "$total_rps" "$remaining"
 done
 
