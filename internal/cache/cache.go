@@ -9,11 +9,8 @@ import (
 )
 
 const (
-	TTLLiveGame   = 2
-	TTLToday      = 30
-	TTLRecent     = 120
-	TTLHistorical = 1440
 	TTLStandings  = 60
+	TTLHistorical = 1440
 )
 
 type Store struct {

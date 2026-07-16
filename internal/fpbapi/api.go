@@ -33,8 +33,19 @@ func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 	if err != nil { return nil, err }
 	detail, _ := scraper.ScrapeGameDetail(string(body))
 	detail.ID = internalID
+
+	// Chain invalidation: status change → invalidate club calendars
+	if oldRaw, ok := f.cache.Get(key); ok {
+		var old models.GameDetail
+		if json.Unmarshal(oldRaw, &old) == nil && old.Status != "" && old.Status != detail.Status {
+			log.Printf("[invalidate] game %s: %s → %s", internalID, old.Status, detail.Status)
+			f.cache.Invalidate("games:club:")
+		}
+	}
+
+	ttl := cache.TTLForGame(detail.Date, detail.Status)
 	raw2, _ := json.Marshal(detail)
-	f.cache.Set(key, raw2, cache.TTLRecent)
+	f.cache.Set(key, raw2, ttl)
 	return detail, nil
 }
 
@@ -60,10 +71,14 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 		for _, item := range v { if s, ok := item.(string); ok { h.WriteString(s) } }
 	}
 	all := scraper.ScrapeGames(h.String(), "FINALIZADO")
-	log.Printf("[results] %d games for club %s season %s", len(all), clubID, season)
 
+	hasToday := false
+	for _, g := range all {
+		if cache.IsToday(g.Date) { hasToday = true; break }
+	}
+	ttl := cache.TTLForCalendar(hasToday, cache.IsOffSeason())
 	raw2, _ := json.Marshal(all)
-	f.cache.Set(key, raw2, cache.TTLToday)
+	f.cache.Set(key, raw2, ttl)
 	return all, nil
 }
 
@@ -99,7 +114,7 @@ func (f *FPBAPI) GetAthlete(id string) (*scraper.AthleteData, error) {
 	if err != nil { return nil, err }
 	a := scraper.ScrapeAthlete(string(body))
 	raw2, _ := json.Marshal(a)
-	f.cache.Set(key, raw2, cache.TTLHistorical)
+	f.cache.Set(key, raw2, 1440)
 	return a, nil
 }
 
@@ -113,7 +128,7 @@ func (f *FPBAPI) GetTeam(id string) (*scraper.TeamDetail, error) {
 	if err != nil { return nil, err }
 	td := scraper.ScrapeTeamDetail(string(body))
 	raw2, _ := json.Marshal(td)
-	f.cache.Set(key, raw2, cache.TTLHistorical)
+	f.cache.Set(key, raw2, 1440)
 	return td, nil
 }
 
@@ -127,7 +142,7 @@ func (f *FPBAPI) GetClubTeams(clubID string) ([]models.Team, error) {
 	if err != nil { return nil, err }
 	teams := scraper.ScrapeClubTeams(string(body))
 	raw2, _ := json.Marshal(teams)
-	f.cache.Set(key, raw2, cache.TTLHistorical)
+	f.cache.Set(key, raw2, 1440)
 	return teams, nil
 }
 

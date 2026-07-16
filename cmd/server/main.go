@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -45,28 +44,26 @@ func main() {
 
 	
 	fpb := fpbapi.New(client, store)
-	hub := ws.NewHub()
+
+	hub := ws.NewHub(nil, nil)
 
 	sched := scheduler.New(
 		func(internalID string) (*models.Game, error) {
 			detail, err := fpb.GetGame(internalID)
-			if err != nil {
-				return nil, err
-			}
+			if err != nil { return nil, err }
 			return &detail.Game, nil
 		},
-		func() ([]models.Game, error) {
-			today := time.Now().Format("2006-01-02")
-			log.Printf("Daily fetch: %s (no competitions configured)", today)
-			return nil, nil
-		},
+		func() ([]models.Game, error) { return nil, nil },
 		func(game models.Game) {
 			eventType := "score_update"
-			if game.Status == "FINALIZADO" {
-				eventType = "game_finished"
-			}
+			if game.Status == "FINALIZADO" { eventType = "game_finished" }
 			hub.Broadcast(game.ID, ws.Event{Type: eventType, Data: game})
 		},
+	)
+
+	hub.SetCallbacks(
+		func(gameID string) { sched.ScheduleGameNow(gameID) },
+		func(gameID string) { sched.UnscheduleGame(gameID) },
 	)
 
 	r := chi.NewRouter()

@@ -113,3 +113,37 @@ func (s *Scheduler) pollOnce(gameID string) bool {
 	}
 	return game.Status == "FINALIZADO"
 }
+
+// ScheduleGame adds a polling window starting at the given time.
+func (s *Scheduler) ScheduleGame(gameID string, startTime time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.windows[gameID]; exists { return }
+	s.windows[gameID] = &pollingWindow{
+		gameID: gameID, startTime: startTime, stopCh: make(chan struct{}),
+	}
+	log.Printf("⏰ Scheduled game %s at %s", gameID, startTime.Format("15:04"))
+}
+
+// ScheduleGameNow starts polling immediately, ignoring startTime.
+func (s *Scheduler) ScheduleGameNow(gameID string) {
+	s.mu.Lock()
+	if w, exists := s.windows[gameID]; exists {
+		close(w.stopCh)
+		delete(s.windows, gameID)
+	}
+	s.mu.Unlock()
+	log.Printf("🔍 Polling game %s now", gameID)
+	go s.pollGame(gameID)
+}
+
+// UnscheduleGame stops polling and removes the game from the scheduler.
+func (s *Scheduler) UnscheduleGame(gameID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if w, exists := s.windows[gameID]; exists {
+		close(w.stopCh)
+		delete(s.windows, gameID)
+		log.Printf("⏰ Unscheduled game %s", gameID)
+	}
+}
