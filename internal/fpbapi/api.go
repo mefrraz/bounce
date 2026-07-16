@@ -10,6 +10,7 @@ import (
 
 	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/httpclient"
+	"github.com/mefrraz/bounce/internal/metrics"
 	"github.com/mefrraz/bounce/internal/models"
 	"github.com/mefrraz/bounce/internal/scraper"
 )
@@ -25,10 +26,11 @@ func New(c *httpclient.Client, s *cache.Store) *FPBAPI { return &FPBAPI{http: c,
 
 func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 	key := cache.CacheKey("game", internalID)
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var g models.GameDetail
 		if err := json.Unmarshal(raw, &g); err == nil { return &g, nil }
 	}
+	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("%s/ficha-de-jogo?internalID=%s", fpbBase, url.PathEscape(internalID)))
 	if err != nil { return nil, err }
 	detail, err := scraper.ScrapeGameDetail(string(body))
@@ -52,7 +54,7 @@ func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 
 func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]models.Game, error) {
 	key := cache.CacheKey("games", "club", clubID, season)
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var c []models.Game
 		if err := json.Unmarshal(raw, &c); err == nil { return c, nil }
 	}
@@ -61,6 +63,7 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	p.Set("action", "get_results")
 	p.Set("epoca", season)
 	p.Set("clube", clubID)
+	metrics.IncFPBRequest()
 	body, err := f.http.Get(fpbBase + "/wp-admin/admin-ajax.php?" + p.Encode())
 	if err != nil { return nil, err }
 	var ar struct{ Result interface{}; Hasmore bool }
@@ -85,10 +88,11 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 
 func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {
 	key := cache.CacheKey("competitions")
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var c []models.Competition
 		if err := json.Unmarshal(raw, &c); err == nil { return c, nil }
 	}
+	metrics.IncFPBRequest()
 	body, err := f.http.Post(fpbBase+"/wp-admin/admin-ajax.php", "action=get_competicoes&epoca="+cache.CurrentSeason()+"&escalao=Senior&genero=masculino&radio=true")
 	var comps []models.Competition
 	if err == nil {
@@ -114,10 +118,11 @@ func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {
 
 func (f *FPBAPI) GetAthlete(id string) (*scraper.AthleteData, error) {
 	key := cache.CacheKey("athlete", id)
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var a scraper.AthleteData
 		if err := json.Unmarshal(raw, &a); err == nil { return &a, nil }
 	}
+	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("%s/atletas/%s/", fpbBase, url.PathEscape(id)))
 	if err != nil { return nil, err }
 	a := scraper.ScrapeAthlete(string(body))
@@ -128,10 +133,11 @@ func (f *FPBAPI) GetAthlete(id string) (*scraper.AthleteData, error) {
 
 func (f *FPBAPI) GetTeam(id string) (*scraper.TeamDetail, error) {
 	key := cache.CacheKey("team", id)
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var td scraper.TeamDetail
 		if err := json.Unmarshal(raw, &td); err == nil { return &td, nil }
 	}
+	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("%s/equipa/%s/", fpbBase, url.PathEscape(id)))
 	if err != nil { return nil, err }
 	td := scraper.ScrapeTeamDetail(string(body))
@@ -142,10 +148,11 @@ func (f *FPBAPI) GetTeam(id string) (*scraper.TeamDetail, error) {
 
 func (f *FPBAPI) GetClubTeams(clubID string) ([]models.Team, error) {
 	key := cache.CacheKey("clubteams", clubID)
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var t []models.Team
 		if err := json.Unmarshal(raw, &t); err == nil { return t, nil }
 	}
+	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("%s/wp-admin/admin-ajax.php?action=get_equipas&idClube=%s&epoca=2025/2026epoca="+cache.CurrentSeason()+"", fpbBase, clubID))
 	if err != nil { return nil, err }
 	teams := scraper.ScrapeClubTeams(string(body))
@@ -156,7 +163,7 @@ func (f *FPBAPI) GetClubTeams(clubID string) ([]models.Team, error) {
 
 func (f *FPBAPI) GetStandings(compID string) ([]models.Standing, error) {
 	key := cache.CacheKey("standings", compID)
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var s []models.Standing
 		if err := json.Unmarshal(raw, &s); err == nil { return s, nil }
 	}
@@ -165,6 +172,7 @@ func (f *FPBAPI) GetStandings(compID string) ([]models.Standing, error) {
 	if html != nil {
 		for _, fs := range scraper.ExtractFaseIDs(string(html)) { faseID = fs.ID; break }
 	}
+	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("%s/wp-admin/admin-ajax.php?action=get_more_fase_regular&competicao%%5B%%5D=%s&fase=%s", fpbBase, compID, faseID))
 	if err != nil { return nil, err }
 	var ar struct{ Result struct{ Body string `json:"body"` } `json:"result"` }
@@ -180,10 +188,11 @@ func (f *FPBAPI) GetStandings(compID string) ([]models.Standing, error) {
 
 func (f *FPBAPI) GetTugaBasketStandings(competitionID string) ([]scraper.TugaBasketStanding, error) {
 	key := cache.CacheKey("tugabasket", competitionID)
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var s []scraper.TugaBasketStanding
 		if err := json.Unmarshal(raw, &s); err == nil { return s, nil }
 	}
+	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/getCompetitionDetails?competitionId=%s", competitionID))
 	if err != nil { return nil, err }
 	s := scraper.ScrapeTugaBasketStandings(string(body))
@@ -194,10 +203,11 @@ func (f *FPBAPI) GetTugaBasketStandings(competitionID string) ([]scraper.TugaBas
 
 func (f *FPBAPI) GetTugaBasketPlayers(competitionID string) ([]scraper.TBPlayerStat, error) {
 	key := cache.CacheKey("tugabasket_players", competitionID)
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var p []scraper.TBPlayerStat
 		if err := json.Unmarshal(raw, &p); err == nil { return p, nil }
 	}
+	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/stats/players?competitionId=%s", competitionID))
 	if err != nil { return nil, err }
 	p := scraper.ScrapeTugaBasketPlayers(string(body))
@@ -208,10 +218,11 @@ func (f *FPBAPI) GetTugaBasketPlayers(competitionID string) ([]scraper.TBPlayerS
 
 func (f *FPBAPI) GetTugaBasketTeams(competitionID string) ([]scraper.TBTeamStat, error) {
 	key := cache.CacheKey("tugabasket_teams", competitionID)
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var t []scraper.TBTeamStat
 		if err := json.Unmarshal(raw, &t); err == nil { return t, nil }
 	}
+	metrics.IncFPBRequest()
 	body, err := f.http.Get(fmt.Sprintf("https://resultados.tugabasket.com/stats/teams?competitionId=%s", competitionID))
 	if err != nil { return nil, err }
 	t := scraper.ScrapeTugaBasketTeams(string(body))
@@ -222,7 +233,7 @@ func (f *FPBAPI) GetTugaBasketTeams(competitionID string) ([]scraper.TBTeamStat,
 
 func (f *FPBAPI) GetGamesByCompetition(compID, season string) ([]models.Game, error) {
 	key := cache.CacheKey("games", "comp", compID, season)
-	if raw, ok := f.cache.Get(key); ok {
+	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var g []models.Game
 		if err := json.Unmarshal(raw, &g); err == nil { return g, nil }
 	}
@@ -230,6 +241,7 @@ func (f *FPBAPI) GetGamesByCompetition(compID, season string) ([]models.Game, er
 	p.Set("action", "get_results")
 	p.Set("epoca", season)
 	p.Set("competicao[]", compID)
+	metrics.IncFPBRequest()
 	body, err := f.http.Get(fpbBase + "/wp-admin/admin-ajax.php?" + p.Encode())
 	if err != nil { return nil, err }
 	var ar struct{ Result interface{}; Hasmore bool }

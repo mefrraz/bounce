@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/mefrraz/bounce/internal/metrics"
 )
 
 type visitor struct {
@@ -59,6 +61,7 @@ func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 		v.count++
 		rl.mu.Unlock()
 		if v.count > rl.limit {
+			metrics.IncRateLimited()
 			w.Header().Set("Retry-After", "60")
 			http.Error(w, `{"error":"rate limit exceeded"}`, http.StatusTooManyRequests)
 			return

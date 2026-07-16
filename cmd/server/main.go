@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"sync/atomic"
+	"github.com/mefrraz/bounce/internal/metrics"
 	"runtime"
 	"os/signal"
 	"path/filepath"
@@ -72,8 +72,6 @@ r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP, middleware.Com
 r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{corsOrigin}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
 
 rl := newRateLimiter(100, time.Minute)
-r.Use(metricsMiddleware)
-r.Use(apiKeyMiddleware)
 r.Use(rl.middleware)
 
 r.Get("/test", apihandler.TestPage)
@@ -118,9 +116,9 @@ func metricsHandler(w http.ResponseWriter, _ *http.Request) {
 	runtime.ReadMemStats(&m)
 	fmt.Fprintf(w, "# HELP bounce_goroutines Number of goroutines\n# TYPE bounce_goroutines gauge\nbounce_goroutines %d\n", runtime.NumGoroutine())
 	fmt.Fprintf(w, "# HELP bounce_memory_bytes Allocated memory\n# TYPE bounce_memory_bytes gauge\nbounce_memory_bytes %d\n", m.Alloc)
-	fmt.Fprintf(w, "# HELP bounce_requests_total Total HTTP requests\n# TYPE bounce_requests_total counter\nbounce_requests_total %d\n", atomic.LoadUint64(&requestsTotal))
-	fmt.Fprintf(w, "# HELP bounce_cache_hits_total Cache hits\n# TYPE bounce_cache_hits_total counter\nbounce_cache_hits_total %d\n", atomic.LoadUint64(&cacheHitsTotal))
-	fmt.Fprintf(w, "# HELP bounce_cache_misses_total Cache misses\n# TYPE bounce_cache_misses_total counter\nbounce_cache_misses_total %d\n", atomic.LoadUint64(&cacheMissesTotal))
-	fmt.Fprintf(w, "# HELP bounce_fpb_requests_total Requests to FPB\n# TYPE bounce_fpb_requests_total counter\nbounce_fpb_requests_total %d\n", atomic.LoadUint64(&fpbRequestsTotal))
-	fmt.Fprintf(w, "# HELP bounce_rate_limited_total Rate-limited requests\n# TYPE bounce_rate_limited_total counter\nbounce_rate_limited_total %d\n", atomic.LoadUint64(&rateLimitedTotal))
+	fmt.Fprintf(w, "# HELP bounce_requests_total Total HTTP requests\n# TYPE bounce_requests_total counter\nbounce_requests_total %d\n", metrics.RequestsTotal)
+	fmt.Fprintf(w, "# HELP bounce_cache_hits_total Cache hits\n# TYPE bounce_cache_hits_total counter\nbounce_cache_hits_total %d\n", metrics.CacheHitsTotal)
+	fmt.Fprintf(w, "# HELP bounce_cache_misses_total Cache misses\n# TYPE bounce_cache_misses_total counter\nbounce_cache_misses_total %d\n", metrics.CacheMissesTotal)
+	fmt.Fprintf(w, "# HELP bounce_fpb_requests_total Requests to FPB\n# TYPE bounce_fpb_requests_total counter\nbounce_fpb_requests_total %d\n", metrics.FPBRequestsTotal)
+	fmt.Fprintf(w, "# HELP bounce_rate_limited_total Rate-limited requests\n# TYPE bounce_rate_limited_total counter\nbounce_rate_limited_total %d\n", metrics.RateLimitedTotal)
 }
