@@ -356,7 +356,7 @@ function updateFooter(){}
 function scheduleRefresh(){
 if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null}
 if(ws){try{ws.close()}catch(e){}}
-if(refreshMode==='live'){connectWS();refreshTimer=setInterval(fetchMetrics,30000);return}
+if(refreshMode==='live'){connectWS();refreshTimer=setInterval(fetchMetrics,currentMinutes===1?15000:30000);return}
 refreshSecs=parseInt(refreshMode)||10;
 refreshTimer=setInterval(fetchMetrics,refreshSecs*1000)
 }
@@ -365,7 +365,7 @@ $('rangeBar').addEventListener('click',function(e){
 var btn=e.target.closest('.range-btn');if(!btn)return;
 var rs=this.querySelectorAll('.range-btn');rs.forEach(function(b){b.classList.remove('active')});
 btn.classList.add('active');currentMinutes=Number(btn.dataset.minutes);
-updateFooter();fetchMetrics()
+updateFooter();fetchMetrics();if(refreshMode==='live')scheduleRefresh()
 });
 
 $('refreshBar').addEventListener('click',function(e){
