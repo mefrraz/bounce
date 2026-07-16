@@ -1,8 +1,6 @@
 # bounce-stress.ps1 — Windows stress test: 200+ simulated users browsing
 # Usage: .\bounce-stress.ps1 [host] [users] [duration_secs]
-#   host defaults to localhost:3001
-#   users defaults to 200
-#   duration defaults to 120 (seconds)
+# Requires PowerShell 5.1+
 
 param(
     [string]$HostAddr = "localhost:3001",
@@ -39,82 +37,76 @@ Write-Host "═══ Bounce Stress Test ═══" -ForegroundColor Green
 Write-Host "Host: $BaseUrl   Users: $Users   Duration: ${Duration}s" -ForegroundColor Cyan
 Write-Host ""
 
-$global:total = 0
-$global:ok = 0
-$global:err = 0
-$global:running = $true
-$global:lock = [System.Threading.Mutex]::new()
-
-function Browse-Worker {
-    param($id)
+$scriptBlock = {
+    param($base, $eps, $duration)
+    $deadline = (Get-Date).AddSeconds($duration)
     $rng = [Random]::new()
-    while ($global:running) {
-        foreach ($ep in $endpoints) {
-            if (-not $global:running) { return }
+    $total = 0; $ok = 0
+    while ((Get-Date) -lt $deadline) {
+        foreach ($ep in $eps) {
+            if ((Get-Date) -ge $deadline) { break }
             try {
-                $url = "$BaseUrl$ep"
-                $response = Invoke-WebRequest -Uri $url -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
-                $global:lock.WaitOne() | Out-Null
-                if ($response.StatusCode -eq 200) { $global:ok++ } else { $global:err++ }
-                $global:total++
-                $global:lock.ReleaseMutex()
-            } catch {
-                $global:lock.WaitOne() | Out-Null
-                $global:err++
-                $global:total++
-                $global:lock.ReleaseMutex()
-            }
-            # Simulate read time (100-500ms)
+                $r = Invoke-WebRequest -Uri "$base$ep" -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
+                if ($r.StatusCode -eq 200) { $ok++ }
+            } catch {}
+            $total++
             Start-Sleep -Milliseconds ($rng.Next(100, 500))
         }
     }
+    Write-Output "$total|$ok"
 }
 
 Write-Host "Launching $Users workers..." -ForegroundColor Yellow
 $startTime = Get-Date
-$deadline = $startTime.AddSeconds($Duration)
 
-# Spawn workers in batches
-$batchSize = 50
+$jobs = @()
+$batchSize = 25
 for ($i = 0; $i -lt $Users; $i += $batchSize) {
     $end = [Math]::Min($i + $batchSize, $Users)
-    1..($end - $i) | ForEach-Object {
-        Start-Job -ScriptBlock {
-            param($id, $eps, $base)
-            $global:running = $using:running
-            $rng = [Random]::new()
-            while ($using:running) {
-                foreach ($ep in $using:eps) {
-                    if (-not $using:running) { return }
-                    try {
-                        $r = Invoke-WebRequest -Uri "$using:base$ep" -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
-                    } catch {}
-                }
-                Start-Sleep -Milliseconds ($rng.Next(100, 500))
-            }
-        } -ArgumentList $i, $endpoints, $BaseUrl
+    for ($j = $i; $j -lt $end; $j++) {
+        $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $BaseUrl, $endpoints, $Duration
+        $jobs += $job
     }
     Start-Sleep -Milliseconds 200
+    $elapsed = [int]((Get-Date) - $startTime).TotalSeconds
+    Write-Host "`rLaunched $end/$Users workers  (${elapsed}s)" -NoNewline
 }
+Write-Host ""
 
-# Display loop
 $spinner = @('⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏')
-while ((Get-Date) -lt $deadline) {
+while ((Get-Date) -lt $startTime.AddSeconds($Duration)) {
     $elapsed = [int]((Get-Date) - $startTime).TotalSeconds
     $remaining = $Duration - $elapsed
+    $running = ($jobs | Where-Object { $_.State -eq 'Running' }).Count
     $spin = $spinner[$elapsed % 10]
-    Write-Host "`r$spin  ${elapsed}s | remaining ${remaining}s  " -NoNewline -ForegroundColor Cyan
+    Write-Host "`r$spin  ${elapsed}s | running=$running | remaining=${remaining}s  " -NoNewline -ForegroundColor Cyan
     Start-Sleep -Milliseconds 500
 }
-
-$global:running = $false
 Write-Host ""
+
+# Collect results
+$totalAll = 0; $okAll = 0
+foreach ($job in $jobs) {
+    $result = Receive-Job -Job $job -ErrorAction SilentlyContinue
+    if ($result) {
+        $parts = $result -split '\|'
+        if ($parts.Count -eq 2) {
+            $totalAll += [int]$parts[0]
+            $okAll += [int]$parts[1]
+        }
+    }
+    Remove-Job -Job $job -Force
+}
+
+$elapsed = [int]((Get-Date) - $startTime).TotalSeconds
 Write-Host ""
 Write-Host "═══ Done ═══" -ForegroundColor Green
-$elapsed = [int]((Get-Date) - $startTime).TotalSeconds
-Write-Host "  Duration: ${elapsed}s"
-Write-Host "  Dashboard: $BaseUrl/dashboard" -ForegroundColor Yellow
-
-# Cleanup jobs
-Get-Job | Stop-Job
-Get-Job | Remove-Job
+Write-Host "  Duration:       ${elapsed}s"
+Write-Host "  Total requests: $totalAll" -ForegroundColor Cyan
+Write-Host "  OK:             $okAll" -ForegroundColor Green
+Write-Host "  Errors:         $($totalAll - $okAll)" -ForegroundColor Red
+if ($elapsed -gt 0) {
+    Write-Host "  Avg req/s:      $([Math]::Round($totalAll / $elapsed))"
+}
+Write-Host ""
+Write-Host "Dashboard: $BaseUrl/dashboard" -ForegroundColor Yellow

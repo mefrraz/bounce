@@ -406,10 +406,10 @@ drawLineChart(canvases.requests,reqSeries,'#ff6b35',{xLabels:xLabels});
 drawLineChart(canvases.cache,cacheSeries,'#4fc3f7',{suffix:'%',minCap:0,maxCap:100,xLabels:xLabels});
 drawLineChart(canvases.fpb,fpbSeries,'#22c55e',{xLabels:xLabels});
 
-var last=snapshots[snapshots.length-1];
-$('chartRequestsCurrent').textContent=last?fmtNumber(last.requests):'–';
+var last=snapshots[snapshots.length-1],first=snapshots[0];
+$('chartRequestsCurrent').textContent=last&&first?fmtNumber(Math.max(0,last.requests-first.requests)):'–';
 $('chartCacheCurrent').textContent=last?Math.round(computeCacheRate(last))+'%':'–';
-$('chartFpbCurrent').textContent=last?fmtNumber(last.fpbRequests):'–';
+$('chartFpbCurrent').textContent=last&&first?fmtNumber(Math.max(0,last.fpbRequests-first.fpbRequests)):'–';
 // Cumulative total requests (full-width chart)
 var cumSeries=[],cum=0;
 for(var b=0;b<buckets.length;b++){cum+=buckets[b].reqSum;cumSeries.push({time:fmtLabel(buckets[b].time),value:cum})}
