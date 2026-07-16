@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -20,31 +25,26 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+
 	port := os.Getenv("BOUNCE_PORT")
-	if port == "" {
-		port = "3001"
-	}
+	if port == "" { port = "3001" }
 	dataDir := os.Getenv("BOUNCE_DATA_DIR")
-	if dataDir == "" {
-		dataDir = "/data"
-	}
+	if dataDir == "" { dataDir = "/data" }
+
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		log.Fatalf("create data dir: %v", err)
 	}
 
 	dbPath := filepath.Join(dataDir, "bounce.db")
 	store, err := cache.NewStore(dbPath)
-	if err != nil {
-		log.Fatalf("cache: %v", err)
-	}
+	if err != nil { log.Fatalf("cache: %v", err) }
 	defer store.Close()
 
 	client := httpclient.New()
 	defer client.Stop()
 
-	
 	fpb := fpbapi.New(client, store)
-
 	hub := ws.NewHub(nil, nil)
 
 	sched := scheduler.New(
@@ -55,9 +55,9 @@ func main() {
 		},
 		func() ([]models.Game, error) { return nil, nil },
 		func(game models.Game) {
-			eventType := "score_update"
-			if game.Status == "FINALIZADO" { eventType = "game_finished" }
-			hub.Broadcast(game.ID, ws.Event{Type: eventType, Data: game})
+			et := "score_update"
+			if game.Status == "FINALIZADO" { et = "game_finished" }
+			hub.Broadcast(game.ID, ws.Event{Type: et, Data: game})
 		},
 	)
 
@@ -71,16 +71,15 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
+		AllowedOrigins: []string{"*"}, AllowedMethods: []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders: []string{"Content-Type", "Authorization"},
-		AllowCredentials: false,
-		MaxAge:           86400,
+		AllowCredentials: false, MaxAge: 86400,
 	}))
 
 	r.Get("/health", apihandler.Health)
 	r.Get("/test", apihandler.TestPage)
 	r.Get("/app", apihandler.AppPage)
+	r.Get("/metrics", metricsHandler)
 
 	handler := apihandler.NewHandler(fpb)
 	handler.RegisterRoutes(r)
@@ -93,8 +92,27 @@ func main() {
 	defer sched.Stop()
 
 	addr := ":" + port
-	log.Printf("Bounce %s starting on %s", apihandler.Version, addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatalf("server failed: %v", err)
-	}
+	srv := &http.Server{Addr: addr, Handler: r}
+
+	// Graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		slog.Info("starting", "version", apihandler.Version, "addr", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	slog.Info("shutting down...")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	srv.Shutdown(shutdownCtx)
+}
+
+func metricsHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte("# HELP bounce_uptime_seconds Uptime in seconds\n# TYPE bounce_uptime_seconds counter\nbounce_uptime_seconds 0\n"))
 }
