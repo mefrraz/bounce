@@ -7,11 +7,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--accent:#ff6b35;--accent-dim:#e85a2a;--data:#4fc3f7;--bg:#09090b;--card:#18181b;--card-hover:#27272a;--border:rgba(255,255,255,0.1);--border-strong:rgba(255,255,255,0.15);--text:#f4f4f5;--muted:#71717a;--muted2:#52525b;--green:#22c55e;--red:#ef4444}
-[data-theme="light"]{--accent:#e85a2a;--accent-dim:#cc4f1f;--data:#0284c7;--bg:#fafafa;--card:#fff;--card-hover:#f4f4f5;--border:rgba(0,0,0,0.08);--border-strong:rgba(0,0,0,0.14);--text:#18181b;--muted:#71717a;--muted2:#a1a1aa;--green:#16a34a;--red:#dc2626}
+:root{--accent:#ff6b35;--accent-dim:#e85a2a;--accent-light:#ff8c5f;--data:#4fc3f7;--bg:#09090b;--card:#18181b;--card-hover:#27272a;--border:rgba(255,255,255,0.1);--border-strong:rgba(255,255,255,0.15);--text:#f4f4f5;--muted:#71717a;--muted2:#52525b;--green:#22c55e;--red:#ef4444}
+[data-theme="light"]{--accent:#e85a2a;--accent-dim:#cc4f1f;--accent-light:#ff7f55;--data:#0284c7;--bg:#fafafa;--card:#fff;--card-hover:#f4f4f5;--border:rgba(0,0,0,0.08);--border-strong:rgba(0,0,0,0.14);--text:#18181b;--muted:#71717a;--muted2:#a1a1aa;--green:#16a34a;--red:#dc2626}
 *{box-sizing:border-box;margin:0;padding:0}
-html{scrollbar-gutter:stable}html,body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;min-height:100vh}
+html{scrollbar-gutter:stable}html,body{background:var(--bg);color:var(--text);font-family:'Outfit','Segoe UI',sans-serif;min-height:100vh}
 body{background-image:radial-gradient(circle at 15% 0%,rgba(255,107,53,0.08) 0%,transparent 45%),radial-gradient(circle at 85% 15%,rgba(79,195,247,0.04) 0%,transparent 40%);background-attachment:fixed}
+[data-theme="light"] body{background-image:radial-gradient(circle at 15% 0%,rgba(255,107,53,0.04) 0%,transparent 45%),radial-gradient(circle at 85% 15%,rgba(2,132,199,0.03) 0%,transparent 40%)}
 
 nav.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:64px;background:rgba(9,9,11,0.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
 [data-theme="light"] nav.topbar{background:rgba(250,250,250,0.85)}
@@ -33,7 +34,7 @@ nav.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;just
 .live-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
 .live-pill.online .dot{animation:pulse 1.6s infinite}@keyframes pulse{50%{opacity:.5}}
 
-main{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+main{max-width:760px;margin:0 auto;padding:28px 20px 60px}
 .page-head{margin-bottom:24px}
 .page-head h1{font-size:22px;font-weight:800;letter-spacing:-0.02em}
 .page-head p{color:var(--muted);font-size:13px;margin-top:4px}
@@ -48,9 +49,9 @@ main{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
 
 .endpoint{background:rgba(0,0,0,0.15);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:10px 0}
 .endpoint-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.method{font-size:10.5px;font-weight:800;letter-spacing:.03em;padding:3px 8px;border-radius:6px;color:var(--data);background:rgba(79,195,247,0.12);border:1px solid rgba(79,195,247,0.25)}
+.method{font-size:10.5px;font-weight:600;letter-spacing:.03em;padding:3px 8px;border-radius:6px;color:var(--data);background:rgba(79,195,247,0.12);border:1px solid rgba(79,195,247,0.25)}
 .method.ws{color:var(--accent);background:rgba(255,107,53,0.12);border-color:rgba(255,107,53,0.25)}
-.path{font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:var(--text)}
+.path{font-family:'Courier New',monospace;font-size:13px;font-weight:600;color:var(--text)}
 .desc{font-size:11.5px;color:var(--muted);margin-bottom:8px}
 .params-table{width:100%;border-collapse:collapse;font-size:11.5px;margin:8px 0}
 .params-table th{text-align:left;color:var(--muted2);font-weight:700;padding:4px 8px;border-bottom:1px solid var(--border);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em}
@@ -76,7 +77,7 @@ pre{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px
 <a href="/test">Test</a>
 <a href="/metrics">Metrics</a>
 </div>
-<div class="nav-right"><span class="live-pill online" id="livePill"><span class="dot"></span>Online</span><button class="toggle-btn" id="themeToggle" title="Alternar modo claro/escuro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div>
+<div class="nav-right"><span class="live-pill online" id="livePill"><span class="dot"></span>Live</span><button class="toggle-btn" id="themeToggle" title="Alternar modo claro/escuro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div>
 </nav>
 
 <main>
