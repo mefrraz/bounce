@@ -359,7 +359,7 @@ var res=await fetch('/api/metrics/history/simple?minutes='+currentMinutes,{cache
 if(!res.ok)throw new Error('HTTP '+res.status);
 var payload=await res.json(),snapshots=normalizeSnapshots(payload);
 lastSnapshots=snapshots;
-renderCards(snapshots);renderCharts(snapshots);setLive(true);
+renderCards(snapshots);renderCharts(snapshots);
 $('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())
 }catch(err){
 setLive(false);$('lastUpdate').textContent='Falha ao atualizar ('+fmtTime(new Date())+')';
@@ -417,7 +417,7 @@ $('mGoroutines').textContent=fmtNumber(d.goroutines||0);
 lastWs={requests:r,cacheHits:ch,cacheMisses:cm,fpb:fp,limited:rl};
 $('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())
 }catch(ex){}};
-ws.onclose=function(){if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
+ws.onclose=function(){setLive(false);if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
 }catch(ex){}
 }
 
