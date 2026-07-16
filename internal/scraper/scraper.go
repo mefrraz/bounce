@@ -491,31 +491,3 @@ func ScrapeTugaBasketStandings(html string) []TugaBasketStanding {
 
 	return standings
 }
-
-// ---- TugaBasket Game Results ----
-
-type TBGameResult struct {
-	Date      string `json:"data"`
-	HomeTeam  string `json:"equipa_casa"`
-	AwayTeam  string `json:"equipa_fora"`
-	Score     string `json:"resultado"`
-	Phase     string `json:"fase"`
-}
-
-func ScrapeTugaBasketGames(html string) []TBGameResult {
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil { return nil }
-	var results []TBGameResult
-	doc.Find("table tbody tr").Each(func(_ int, row *goquery.Selection) {
-		cells := row.Find("td")
-		if cells.Length() < 5 { return }
-		results = append(results, TBGameResult{
-			Date: strings.TrimSpace(cells.Eq(1).Text()),
-			HomeTeam: strings.TrimSpace(cells.Eq(2).Text()),
-			Score: strings.TrimSpace(cells.Eq(3).Text()),
-			AwayTeam: strings.TrimSpace(cells.Eq(4).Text()),
-			Phase: strings.TrimSpace(cells.Eq(5).Text()),
-		})
-	})
-	return results
-}

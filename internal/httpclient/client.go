@@ -53,20 +53,6 @@ func (c *Client) Post(url, body string) ([]byte, error) {
 	})
 }
 
-// PostFast sends a POST without rate limiting (for internal score fetching).
-func (c *Client) PostFast(url, body string) ([]byte, error) {
-	req, err := http.NewRequest("POST", url, strings.NewReader(body))
-	if err != nil { return nil, err }
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Referer", "https://www.fpb.pt/")
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := c.http.Do(req)
-	if err != nil { return nil, err }
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
-}
-
 func (c *Client) doWithRetry(fetch func() (*http.Response, error)) ([]byte, error) {
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
