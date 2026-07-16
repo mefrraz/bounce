@@ -321,22 +321,17 @@ if(snapshots.length===0){
 ['mRequests','mCache','mFpb','mLimited'].forEach(function(k){$(k).textContent='–'});
 return
 }
-var latest=snapshots[snapshots.length-1],prev=snapshots.length>1?snapshots[snapshots.length-2]:null;
+var latest=snapshots[snapshots.length-1],first=snapshots[0];
 $('mRequests').textContent=fmtNumber(latest.requests);
 $('mCache').textContent=fmtNumber(Math.round(computeCacheRate(latest)))+'%';
 $('mFpb').textContent=fmtNumber(latest.fpbRequests);
 $('mLimited').textContent=fmtNumber(latest.rateLimited);
 
-function subText(el,curr,prevVal,unit){
-if(prevVal===null||prevVal===undefined){el.textContent='último snapshot';return}
-var diff=curr-prevVal;if(diff===0){el.innerHTML='— sem alteração';return}
-var cls=diff>0?'trend-up':'trend-down',arrow=diff>0?'▲':'▼';
-el.innerHTML='<span class="'+cls+'">'+arrow+' '+Math.abs(diff).toLocaleString('pt-PT')+(unit||'')+'</span> vs anterior'
-}
-subText($('mRequestsSub'),latest.requests,prev?prev.requests:null);
-subText($('mCacheSub'),Math.round(computeCacheRate(latest)),prev?Math.round(computeCacheRate(prev)):null,'%');
-subText($('mFpbSub'),latest.fpbRequests,prev?prev.fpbRequests:null);
-subText($('mLimitedSub'),latest.rateLimited,prev?prev.rateLimited:null)
+function subText(el,curr,prevVal,unit){if(snapshots.length<2){el.textContent='primeiro snapshot';return}var vsLabel='vs ha '+(currentMinutes>=1440?Math.round(currentMinutes/1440)+'d':currentMinutes>=60?Math.round(currentMinutes/60)+'h':currentMinutes+'m');var diff=curr-prevVal;if(diff===0){el.innerHTML='— sem alteração '+vsLabel;return}var cls=diff>0?'trend-up':'trend-down',arrow=diff>0?'▲':'▼';el.innerHTML='<span class="'+cls+'">'+arrow+' '+Math.abs(diff).toLocaleString('pt-PT')+(unit||'')+'</span> '+vsLabel}
+subText($('mRequestsSub'),latest.requests,first.requests);
+subText($('mCacheSub'),Math.round(computeCacheRate(latest)),Math.round(computeCacheRate(first)),'%');
+subText($('mFpbSub'),latest.fpbRequests,first.fpbRequests);
+subText($('mLimitedSub'),latest.rateLimited,first.rateLimited)
 }
 
 function renderCharts(snapshots){
@@ -385,7 +380,7 @@ b0.fpbSum=Math.max(0,(firstSnap.fpbRequests||0)-(baseline.fpbRequests||0))
 }
 
 // Build series: time label HH:MM, value from bucket
-function fmtLabel(d){return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
+function fmtLabel(d){return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+(currentMinutes<=1?':'+('0'+d.getSeconds()).slice(-2):'')}
 var reqSeries=buckets.map(function(b){return{time:fmtLabel(b.time),value:b.reqSum}});
 var cacheSeries=buckets.map(function(b){var t=b.cacheHits+b.cacheMisses;return{time:fmtLabel(b.time),value:t>0?Math.round(b.cacheHits/t*100):0}});
 var fpbSeries=buckets.map(function(b){return{time:fmtLabel(b.time),value:b.fpbSum}});
