@@ -382,33 +382,31 @@ type TeamPlayer struct {
 
 // ScrapeTeamDetail parses a team page (/equipa/{id}/).
 func ScrapeTeamDetail(html string) *TeamDetail {
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil {
-		return nil
+	td := &TeamDetail{}
+
+	// Dribly: team name from <div class="team-nome">NAME</div>
+	if nm := regexp.MustCompile(`<div class="team-nome">\s*([^<]+)\s*</div>`).FindStringSubmatch(html); len(nm) > 1 {
+		td.Name = strings.TrimSpace(nm[1])
 	}
 
-	td := &TeamDetail{}
-	td.Name = strings.TrimSpace(doc.Find("h1").First().Text())
-	td.Photo, _ = doc.Find(".team-photo img").First().Attr("src")
-	td.Club = strings.TrimSpace(doc.Find(".club-name").First().Text())
+	// Photo: <div class="team-right"> <img src="..." />
+	if pm := regexp.MustCompile(`<div class="team-right[^"]*">\s*<img\s+src="([^"]+)"`).FindStringSubmatch(html); len(pm) > 1 && !strings.Contains(pm[1], "noplayer") {
+		td.Photo = pm[1]
+	}
 
-	// Players
-	doc.Find(".player-card, .jogador-item, table.plantel tbody tr").Each(func(_ int, el *goquery.Selection) {
-		name := strings.TrimSpace(el.Find(".player-name, .nome").First().Text())
-		photo, _ := el.Find("img").First().Attr("src")
-		num := atoi(strings.TrimSpace(el.Find(".player-number, .numero").First().Text()))
-		id, _ := el.Find("a").Attr("href")
-		id = strings.TrimPrefix(id, "/atletas/")
-		id = strings.TrimSuffix(id, "/")
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err == nil {
+		doc.Find(".player").Each(func(_ int, el *goquery.Selection) {
+			photo, _ := el.Find("img").First().Attr("src")
+			name := strings.TrimSpace(el.Find(".info").First().Text())
+			if name == "" { name = strings.TrimSpace(el.Text()) }
+			if len(name) > 2 && len(name) < 40 {
+				td.Players = append(td.Players, TeamPlayer{Name: name, Photo: photo})
+			}
+		})
+	}
 
-		if name != "" {
-			td.Players = append(td.Players, TeamPlayer{Name: name, Number: num, Photo: photo, ID: id})
-		}
-	})
-
-	// Games (use the same .day-wrapper parser)
 	td.Games = ScrapeGames(html, "AGENDADO")
-
 	return td
 }
 
