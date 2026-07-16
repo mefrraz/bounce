@@ -1,110 +1,203 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt" data-theme="dark">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Bounce — Test Suite</title>
+<title>Bounce · Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#333;padding:24px;max-width:800px;margin:0 auto}
-h1{font-size:22px;font-weight:600;margin-bottom:4px;color:#222}
-.sub{font-size:13px;color:#888;margin-bottom:20px}
-.group{margin-bottom:20px}
-.group h2{font-size:14px;font-weight:600;margin-bottom:8px;color:#555;text-transform:uppercase;letter-spacing:.5px}
-.row{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border:1px solid #e0e0e0;border-radius:6px;margin-bottom:4px}
-.method{font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;min-width:36px;text-align:center}
-.get{background:#61affe;color:#fff}
-.url{font-family:monospace;font-size:12px;flex:1;color:#333}
-input{border:1px solid #ddd;border-radius:4px;padding:4px 8px;font-size:11px;width:80px}
-button{background:#49cc90;color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600}
-button:hover{opacity:.85}
-.status{font-size:11px;min-width:50px;text-align:right}
-.ok{color:#49cc90}.err{color:#f93e3e}.load{color:#aaa}
-.result{display:none;background:#263238;color:#e0e0e0;padding:8px 12px;border-radius:6px;margin:-2px 0 8px 0;font-size:11px;font-family:monospace;max-height:150px;overflow:auto;white-space:pre-wrap}
-.result.show{display:block}
-#run-all{margin-bottom:16px;background:#333;padding:8px 20px;font-size:13px}
-.pass{color:#49cc90}.fail{color:#f93e3e}
+:root{--accent:#ff6b35;--accent-dim:#e85a2a;--accent-light:#ff8c5f;--data:#4fc3f7;--bg:#0f0f1a;--card:#1a1a2e;--card-hover:#20203a;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.14);--text:#e0e0e0;--muted:#888;--muted2:#555;--green:#22c55e;--red:#ef4444}
+[data-theme="light"]{--accent:#e85a2a;--accent-dim:#cc4f1f;--data:#0284c7;--bg:#f5f5f7;--card:#fff;--card-hover:#f0f0f3;--border:rgba(0,0,0,0.08);--border-strong:rgba(0,0,0,0.14);--text:#1a1a2e;--muted:#666;--muted2:#999;--green:#16a34a;--red:#dc2626}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh}
+body{background-image:radial-gradient(circle at 15% 0%,rgba(255,107,53,0.10) 0%,transparent 45%),radial-gradient(circle at 85% 15%,rgba(79,195,247,0.06) 0%,transparent 40%);background-attachment:fixed}
+
+nav.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:rgba(15,15,26,0.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+[data-theme="light"] nav.topbar{background:rgba(255,255,255,0.85)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-0.02em}
+.brand-mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));border:2px dashed rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,0.5)}
+.brand span.dim{color:var(--muted);font-weight:500}
+.nav-links{display:flex;align-items:center;gap:4px}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;transition:all .18s}
+.nav-links a:hover{color:var(--text);background:rgba(128,128,128,0.1)}
+.nav-links a.active{color:var(--accent);background:rgba(255,107,53,0.1);position:relative}
+.nav-links a.active::after{content:'';position:absolute;bottom:-1px;left:14px;right:14px;height:2px;background:var(--accent);border-radius:2px}
+.nav-right{display:flex;align-items:center;gap:8px}
+.toggle-btn{background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);border-radius:6px;transition:all .15s}
+.toggle-btn:hover{color:var(--text);background:rgba(128,128,128,0.1)}
+.toggle-btn svg{display:block}
+.live-pill{font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px}
+.live-pill.online{color:var(--green);background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2)}
+.live-pill.offline{color:var(--red);background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2)}
+.live-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.live-pill.online .dot{animation:pulse 1.6s infinite}@keyframes pulse{50%{opacity:.5}}
+
+main{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:22px}
+.page-head h1{font-size:22px;font-weight:800;letter-spacing:-0.02em}
+.page-head p{color:var(--muted);font-size:13px;margin-top:2px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;padding:10px 18px;border-radius:10px;transition:all .18s}
+.btn-primary{color:#fff;background:linear-gradient(135deg,var(--accent-light),var(--accent-dim));box-shadow:0 2px 12px rgba(255,107,53,0.35)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-ghost{color:var(--text);background:var(--card);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--border-strong);background:var(--card-hover)}
+.btn-small{padding:6px 12px;font-size:12px;border-radius:8px}
+.btn-danger{color:var(--red);background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25)}
+.btn-danger:hover{background:rgba(239,68,68,0.14)}
+
+.summary-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 18px;margin-bottom:24px;display:none}
+.summary-card.visible{display:block;animation:fadeIn .35s}
+.summary-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.summary-head h3{font-size:13px;font-weight:700}
+.summary-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.summary-table th{text-align:left;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:10.5px;padding:6px 10px;border-bottom:1px solid var(--border)}
+.summary-table td{padding:8px 10px;border-bottom:1px solid var(--border)}
+.status-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+.status-ok{color:var(--green);background:rgba(34,197,94,0.1)}
+.status-err{color:var(--red);background:rgba(239,68,68,0.1)}
+
+.endpoints-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.endpoint-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;animation:fadeIn .4s;transition:border-color .2s}
+.endpoint-card:hover{border-color:var(--border-strong)}
+.endpoint-card.full{grid-column:1/-1}
+@keyframes fadeIn{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}
+.endpoint-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.method-badge{font-size:10.5px;font-weight:800;letter-spacing:.03em;padding:3px 8px;border-radius:6px;color:var(--data);background:rgba(79,195,247,0.12);border:1px solid rgba(79,195,247,0.25)}
+.method-badge.ws{color:var(--accent);background:rgba(255,107,53,0.12);border-color:rgba(255,107,53,0.25)}
+.ep-path{font-family:'Courier New',monospace;font-size:12.5px;font-weight:700;color:var(--text)}
+.params-row{display:flex;gap:8px;flex-wrap:wrap}
+.param-field{display:flex;flex-direction:column;gap:4px;flex:1 1 130px;min-width:110px}
+.param-field label{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.param-field input{background:rgba(128,128,128,0.05);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Courier New',monospace;font-size:12px;padding:8px 10px;outline:none;transition:border-color .15s}
+.param-field input:focus{border-color:var(--accent)}
+.ep-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.resp-meta{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--muted);margin-left:auto}
+.spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(128,128,128,0.15);border-top-color:var(--accent);animation:spin .7s linear infinite;display:none}
+.spinner.spinning{display:inline-block}@keyframes spin{to{transform:rotate(360deg)}}
+pre.resp-box{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:'Courier New',monospace;font-size:11.5px;line-height:1.5;max-height:260px;overflow:auto;white-space:pre-wrap;word-break:break-word;display:none;margin-top:8px}
+pre.resp-box.visible{display:block}
+pre.resp-box.error{color:var(--red);border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.06)}
+
+.ws-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:26px}
+.ws-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ws-head h2{font-size:16px;font-weight:800}
+.ws-controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.ws-log{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:10px;padding:12px 14px;height:220px;overflow-y:auto;font-family:'Courier New',monospace;font-size:11.5px;line-height:1.6}
+.ws-log-empty{color:var(--muted);text-align:center;padding-top:80px}
+
+@media(max-width:880px){.endpoints-grid{grid-template-columns:1fr}}
+@media(max-width:620px){nav.topbar{padding:0 14px;height:52px}.nav-links a{padding:6px 10px;font-size:12px}.brand span.dim{display:none}main{padding:20px 14px 50px}}
 </style>
 </head>
 <body>
-<h1>Bounce Test Suite</h1>
-<p class="sub">Verifies every endpoint from <a href="/docs" style="color:#61affe">/docs</a></p>
-<button id="run-all" onclick="runAll()">Run All</button>
+<nav class="topbar">
+<div class="brand"><div class="brand-mark" title="Substituir pelo logo - ver TODO.md">?</div>Bounce <span class="dim">/ test</span></div>
+<div class="nav-links">
+<a href="#" data-nav="dashboard">Dashboard</a>
+<a href="#" data-nav="docs">API Docs</a>
+<a href="#" data-nav="test" class="active">Test</a>
+<a href="#" data-nav="metrics">Metrics</a>
+</div>
+<div class="nav-right">
+<span class="live-pill online" id="livePill"><span class="dot"></span>Online</span>
+<button class="toggle-btn" id="themeToggle" title="Alternar modo claro/escuro">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+</button>
+</div>
+</nav>
 
-<div class="group" id="groups"></div>
+<main>
+<div class="page-head"><div><h1>API Test Console</h1><p>Testa todos os endpoints diretamente do browser</p></div>
+<button class="btn btn-primary" id="testAllBtn">Test All</button></div>
+
+<div class="summary-card" id="summaryCard">
+<div class="summary-head"><h3>Resumo</h3><span id="summaryMeta" style="font-size:11.5px;color:var(--muted)"></span></div>
+<table class="summary-table"><thead><tr><th>Endpoint</th><th>Status</th><th>Tempo</th></tr></thead><tbody id="summaryBody"></tbody></table>
+</div>
+
+<section class="endpoints-grid" id="endpointsGrid"></section>
+
+<section class="ws-card">
+<div class="ws-head"><h2>WebSocket /ws/game/{id}</h2></div>
+<div class="ws-controls">
+<div class="param-field" style="flex:0 0 160px"><label>Game ID</label><input type="text" id="wsGameId" value="413420"></div>
+<button class="btn btn-primary" id="wsConnectBtn">Connect</button>
+<button class="btn btn-danger" id="wsDisconnectBtn" disabled>Disconnect</button>
+<button class="btn btn-ghost btn-small" id="wsClearBtn">Limpar</button>
+</div>
+<div class="ws-log" id="wsLog"><div class="ws-log-empty">Introduz um Game ID e clica Connect</div></div>
+</section>
+</main>
 
 <script>
-const endpoints = [
-  {method:'GET',path:'/health',group:'Admin'},
-  {method:'GET',path:'/metrics',group:'Admin'},
-  {method:'GET',path:'/api/competitions',group:'Competitions'},
-  {method:'GET',path:'/api/standings/10902',group:'Competitions'},
-  {method:'GET',path:'/api/game/413420',group:'Games'},
-  {method:'GET',path:'/api/games?club=119&season=2025/2026',group:'Games'},
-  {method:'GET',path:'/api/games/today',group:'Games'},
-  {method:'GET',path:'/api/games/live',group:'Games'},
-  {method:'GET',path:'/api/games/paginated?club=119&limit=5',group:'Games'},
-  {method:'GET',path:'/api/athlete/269564',group:'Athletes'},
-  {method:'GET',path:'/api/club/127/teams',group:'Clubs'},
-  {method:'GET',path:'/api/tugabasket/standings?competitionId=1',group:'TugaBasket'},
-  {method:'GET',path:'/api/tugabasket/players?competitionId=10902',group:'TugaBasket'},
-  {method:'GET',path:'/api/tugabasket/teams?competitionId=10902',group:'TugaBasket'},
-  {method:'GET',path:'/api/elo',group:'Insights'},
-]
+(function(){
+var EPS=[{id:'health',method:'GET',path:'/health',params:[]},{id:'competitions',method:'GET',path:'/api/competitions',params:[]},{id:'games',method:'GET',path:'/api/games',params:[{n:'club',d:'119'},{n:'season',d:'2025/2026'}]},{id:'games-today',method:'GET',path:'/api/games/today',params:[]},{id:'games-live',method:'GET',path:'/api/games/live',params:[]},{id:'game',method:'GET',path:'/api/game/{id}',params:[{n:'id',d:'413420'}]},{id:'standings',method:'GET',path:'/api/standings/{id}',params:[{n:'id',d:'10902'}]},{id:'athlete',method:'GET',path:'/api/athlete/{id}',params:[{n:'id',d:'269564'}]},{id:'team',method:'GET',path:'/api/team/{id}',params:[{n:'id',d:'equipa_57682'}]},{id:'club-teams',method:'GET',path:'/api/club/{id}/teams',params:[{n:'id',d:'127'}]},{id:'elo',method:'GET',path:'/api/elo',params:[]},{id:'predictions',method:'GET',path:'/api/predictions/{gameId}',params:[{n:'gameId',d:'413420'}]},{id:'h2h',method:'GET',path:'/api/h2h',params:[{n:'team_a',d:'127'},{n:'team_b',d:'120'}]},{id:'tb-standings',method:'GET',path:'/api/tugabasket/standings',params:[{n:'competitionId',d:'1'}]},{id:'tb-players',method:'GET',path:'/api/tugabasket/players',params:[{n:'competitionId',d:'1'}]},{id:'tb-teams',method:'GET',path:'/api/tugabasket/teams',params:[{n:'competitionId',d:'1'}]},{id:'metrics-hist',method:'GET',path:'/api/metrics/history/simple',params:[{n:'minutes',d:'60'}]}];
 
-const groups={}
-endpoints.forEach(e=>{if(!groups[e.group])groups[e.group]=[];groups[e.group].push(e)})
+var grid=document.getElementById('endpointsGrid');
+EPS.forEach(function(ep){
+var d=document.createElement('div');d.className='endpoint-card'+(ep.params.length>2?' full':'');
+var ph=ep.params.map(function(p){return'<div class="param-field"><label>'+p.n+'</label><input id="in-'+ep.id+'-'+p.n+'" value="'+p.d+'"></div>'}).join('');
+d.innerHTML='<div class="endpoint-head"><span class="method-badge">'+ep.method+'</span><span class="ep-path">'+ep.path+'</span></div>'+(ph?'<div class="params-row">'+ph+'</div>':'')+'<div class="ep-actions"><button class="btn btn-primary btn-small" data-run="'+ep.id+'">Testar</button><span class="spinner" id="spin-'+ep.id+'"></span><div class="resp-meta"><span id="status-'+ep.id+'"></span></div></div><pre class="resp-box" id="resp-'+ep.id+'"></pre>';
+grid.appendChild(d);
+});
 
-let html=''
-for(const[g,eps]of Object.entries(groups)){
-  html+=`<h2>${g}</h2>`
-  eps.forEach((e,i)=>{
-    const id=g.replace(/\s/g,'')+i
-    html+=`<div class="row">
-      <span class="method get">${e.method}</span>
-      <span class="url">${e.path}</span>
-      <button onclick="test('${e.path}','${id}')">Test</button>
-      <span class="status load" id="s-${id}">—</span>
-    </div>
-    <div class="result" id="r-${id}"></div>`
-  })
-}
-document.getElementById('groups').innerHTML=html
-
-async function test(path,id){
-  const s=document.getElementById('s-'+id),r=document.getElementById('r-'+id)
-  s.textContent='...';s.className='status load'
-  const t0=Date.now()
-  try{
-    const res=await fetch(path)
-    const ms=Date.now()-t0
-    const body=await res.text()
-    let json=''
-    try{json=JSON.stringify(JSON.parse(body),null,2)}catch(e){json=body}
-    if(res.ok){
-      s.textContent=ms+'ms';s.className='status ok'
-      r.textContent=json.slice(0,1000)
-    }else{
-      s.textContent=res.status;s.className='status err'
-      r.textContent=json
-    }
-    r.classList.add('show')
-  }catch(e){
-    s.textContent='ERR';s.className='status err'
-    r.textContent=e.message;r.classList.add('show')
-  }
+async function runEP(ep){
+var spin=document.getElementById('spin-'+ep.id),box=document.getElementById('resp-'+ep.id),st=document.getElementById('status-'+ep.id);
+spin.classList.add('spinning');box.classList.remove('visible','error');st.textContent='';
+var path=ep.path;ep.params.forEach(function(p){var v=document.getElementById('in-'+ep.id+'-'+p.n).value.trim();path=path.replace('{'+p.n+'}',encodeURIComponent(v||p.d))});
+var t0=performance.now();
+try{
+var r=await fetch(path,{cache:'no-store'}),ms=Math.round(performance.now()-t0);
+var ct=r.headers.get('content-type')||'',body=ct.includes('json')?JSON.stringify(await r.json(),null,2):await r.text();
+box.textContent=body||'(vazio)';box.classList.add('visible',r.ok?'':'error');
+st.innerHTML=r.ok?'<span class="status-badge status-ok">'+r.status+' OK '+ms+'ms</span>':'<span class="status-badge status-err">'+r.status+' ERR '+ms+'ms</span>';
+return{ep:ep,ok:r.ok,ms:ms,path:path};
+}catch(e){
+var ms=Math.round(performance.now()-t0);
+box.textContent='Erro: '+(e.message||e);box.classList.add('visible','error');
+st.innerHTML='<span class="status-badge status-err">FALHA '+ms+'ms</span>';
+return{ep:ep,ok:!1,ms:ms,path:path};
+}finally{spin.classList.remove('spinning')}
 }
 
-async function runAll(){
-  const ids=[]
-  document.querySelectorAll('button:not(#run-all)').forEach(b=>{b.disabled=true;ids.push(b) })
-  for(const[g,eps]of Object.entries(groups)){
-    for(let i=0;i<eps.length;i++){
-      const id=g.replace(/\s/g,'')+i
-      await test(eps[i].path,id)
-    }
-  }
-  ids.forEach(b=>b.disabled=false)
-}
+grid.addEventListener('click',function(e){var b=e.target.closest('[data-run]');if(!b)return;var ep=EPS.find(function(x){return x.id===b.dataset.run});if(ep)runEP(ep)});
+
+document.getElementById('testAllBtn').addEventListener('click',async function(){
+var btn=this;btn.disabled=!0;btn.textContent='A testar...';var t0=performance.now();
+var results=await Promise.all(EPS.map(function(ep){return runEP(ep)}));
+var total=Math.round(performance.now()-t0),ok=results.filter(function(r){return r.ok}).length;
+var body=document.getElementById('summaryBody');body.innerHTML=results.map(function(r){return'<tr><td><span class="method-badge">'+r.ep.method+'</span> '+r.path+'</td><td>'+(r.ok?'<span class="status-badge status-ok">'+r.ok+'</span>':'<span class="status-badge status-err">FALHA</span>')+'</td><td>'+r.ms+' ms</td></tr>'}).join('');
+document.getElementById('summaryMeta').textContent=ok+'/'+results.length+' OK · '+total+' ms';
+document.getElementById('summaryCard').classList.add('visible');
+btn.disabled=!1;btn.innerHTML='Test All';
+});
+
+// WebSocket
+var ws=null,wsl=document.getElementById('wsLog');
+function wsLog(msg,t){var e=wsl.querySelector('.ws-log-empty');if(e)e.remove();var d=document.createElement('div');d.style.cssText='margin-bottom:4px;font-size:11.5px';d.innerHTML='<span style="color:var(--muted)">'+new Date().toLocaleTimeString('pt-PT')+'</span> '+(t?'<span style="color:var(--data)">'+msg+'</span>':'<span>'+msg+'</span>');wsl.appendChild(d);wsl.scrollTop=wsl.scrollHeight}
+document.getElementById('wsConnectBtn').addEventListener('click',function(){
+if(ws)return;var id=document.getElementById('wsGameId').value.trim();if(!id)return wsLog('Game ID required','err');
+var url=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/game/'+id;
+ws=new WebSocket(url);wsLog('Connecting...','sys');
+ws.onopen=function(){wsLog('Connected','sys');document.getElementById('wsConnectBtn').disabled=!0;document.getElementById('wsDisconnectBtn').disabled=!1};
+ws.onmessage=function(e){wsLog(e.data)};
+ws.onerror=function(){wsLog('Error','err')};
+ws.onclose=function(e){wsLog('Disconnected ('+e.code+')','sys');document.getElementById('wsConnectBtn').disabled=!1;document.getElementById('wsDisconnectBtn').disabled=!0;ws=null};
+});
+document.getElementById('wsDisconnectBtn').addEventListener('click',function(){if(ws)ws.close()});
+document.getElementById('wsClearBtn').addEventListener('click',function(){wsl.innerHTML='<div class="ws-log-empty">Introduz um Game ID e clica Connect</div>'});
+
+// Navbar
+document.querySelectorAll('[data-nav]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();var n=this.dataset.nav;if(n==='test')return;window.location='/'+(n==='dashboard'?'dashboard':n)})});
+
+// Theme
+var theme=localStorage.getItem('bounce-theme')||'dark';document.documentElement.setAttribute('data-theme',theme);
+updateToggleIcon(theme);
+document.getElementById('themeToggle').addEventListener('click',function(){var t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);localStorage.setItem('bounce-theme',t);updateToggleIcon(t)});
+function updateToggleIcon(t){document.getElementById('themeToggle').innerHTML=t==='dark'?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'}
+})();
 </script>
 </body>
 </html>

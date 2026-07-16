@@ -22,9 +22,15 @@ nav.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;just
 .nav-links a{color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;transition:all .18s}
 .nav-links a:hover{color:var(--text);background:rgba(128,128,128,0.1)}
 .nav-links a.active{color:var(--accent);background:rgba(255,107,53,0.1)}
-.nav-links a.active::after{content:'';position:absolute;bottom:-1px;left:14px;right:14px;height:2px;background:var(--accent);border-radius:2px}
-.theme-toggle{background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:13px;padding:6px 12px;border-radius:8px;margin-left:8px;transition:all .18s}
-.theme-toggle:hover{color:var(--text);border-color:var(--border-strong)}
+.nav-right{display:flex;align-items:center;gap:8px}
+.toggle-btn{background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);border-radius:6px;transition:all .15s}
+.toggle-btn:hover{color:var(--text);background:rgba(128,128,128,0.1)}
+.toggle-btn svg{display:block}
+.live-pill{font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px}
+.live-pill.online{color:var(--green);background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2)}
+.live-pill.offline{color:var(--red);background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2)}
+.live-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.live-pill.online .dot{animation:pulse 1.6s infinite}@keyframes pulse{50%{opacity:.5}}
 
 main{max-width:900px;margin:0 auto;padding:28px 20px 60px}
 .page-head{margin-bottom:24px}
@@ -69,7 +75,7 @@ pre{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px
 <a href="#" data-nav="test">Test</a>
 <a href="#" data-nav="metrics">Metrics</a>
 </div>
-<button class="theme-toggle" id="themeToggle">Light</button>
+<div class="nav-right"><span class="live-pill online" id="livePill"><span class="dot"></span>Online</span><button class="toggle-btn" id="themeToggle" title="Alternar modo claro/escuro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div>
 </nav>
 
 <main>
@@ -320,14 +326,7 @@ BOUNCE_DATA_DIR=/data ./bounce</pre>
 <script>
 (function(){
 // Theme
-var theme=localStorage.getItem('bounce-theme')||'dark';
-document.documentElement.setAttribute('data-theme',theme);
-document.getElementById('themeToggle').textContent=theme==='dark'?'Light':'Dark';
-document.getElementById('themeToggle').addEventListener('click',function(){
-var t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
-document.documentElement.setAttribute('data-theme',t);localStorage.setItem('bounce-theme',t);
-this.textContent=t==='dark'?'Light':'Dark';
-});
+var theme=localStorage.getItem('bounce-theme')||'dark';document.documentElement.setAttribute('data-theme',theme);updateToggleIcon(theme);function updateToggleIcon(t){document.getElementById('themeToggle').innerHTML=t==='dark'?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'}document.getElementById('themeToggle').addEventListener('click',function(){var t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);localStorage.setItem('bounce-theme',t);updateToggleIcon(t)});
 
 // Navbar
 document.querySelectorAll('[data-nav]').forEach(function(a){a.addEventListener('click',function(e){
