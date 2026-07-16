@@ -86,16 +86,19 @@ r.Get("/dashboard", metrics.DashboardHandler)
 
 	apihandler.NewHandler(fpb).RegisterRoutes(r)
 	hub.RegisterRoutes(r)
+ws.RegisterDashboardRoute(r)
 	apihandler.NewInsightsHandler().RegisterRoutes(r)
 
 	sched.Start()
-metrics.StartRecording()
+	metrics.StartRecording()
+	go metricsBroadcaster()
+
 	go func() { fpb.GetCompetitions(); fpb.GetStandings("10902"); slog.Info("pre-warm complete") }()
 	srv := &http.Server{Addr: ":" + port, Handler: r}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	go func() {
+go func() {
 		slog.Info("starting", "version", apihandler.Version, "addr", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed { log.Fatalf("server: %v", err) }
 	}()
@@ -125,4 +128,21 @@ runtime.ReadMemStats(&m)
 	fmt.Fprintf(w, "# HELP bounce_cache_misses_total Cache misses\n# TYPE bounce_cache_misses_total counter\nbounce_cache_misses_total %d\n", metrics.CacheMissesTotal)
 	fmt.Fprintf(w, "# HELP bounce_fpb_requests_total Requests to FPB\n# TYPE bounce_fpb_requests_total counter\nbounce_fpb_requests_total %d\n", metrics.FPBRequestsTotal)
 	fmt.Fprintf(w, "# HELP bounce_rate_limited_total Rate-limited requests\n# TYPE bounce_rate_limited_total counter\nbounce_rate_limited_total %d\n", metrics.RateLimitedTotal)
+}
+
+func metricsBroadcaster() {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		data := map[string]interface{}{
+			"requests":      metrics.RequestsTotal,
+			"cache_hits":    metrics.CacheHitsTotal,
+			"cache_misses":  metrics.CacheMissesTotal,
+			"fpb_requests":  metrics.FPBRequestsTotal,
+			"rate_limited":  metrics.RateLimitedTotal,
+			"goroutines":    runtime.NumGoroutine(),
+			"uptime_seconds": int(time.Since(startTime).Seconds()),
+		}
+	ws.BroadcastMetrics(data)
+	}
 }
