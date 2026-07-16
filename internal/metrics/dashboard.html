@@ -1,44 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta http-equiv="refresh" content="10">
-<title>Bounce — Dashboard</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Bounce · Dashboard</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f1a;color:#e0e0e0;padding:20px;max-width:600px;margin:0 auto}
-h1{font-size:20px;color:#ff6b35;margin-bottom:4px}
-.sub{font-size:12px;color:#888;margin-bottom:16px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.card{background:#1a1a2e;border-radius:8px;padding:14px;text-align:center}
-.card .label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px}
-.card .value{font-size:28px;font-weight:700;color:#4fc3f7;margin-top:4px}
-.card .unit{font-size:11px;color:#666}
-.live{color:#4caf50;animation:pulse 2s infinite}@keyframes pulse{50%{opacity:.5}}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#e0e0e0;padding:20px;max-width:900px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+h1{font-size:22px;color:#ff6b35}
+.nav{display:flex;gap:8px}
+.nav a{color:#888;text-decoration:none;font-size:12px;padding:4px 10px;border-radius:4px}
+.nav a:hover,.nav a.active{color:#ff6b35;background:#1a1a2e}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.card{background:#1a1a2e;border-radius:8px;padding:12px}
+.card .label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.card .value{font-size:22px;font-weight:700;color:#4fc3f7;margin-top:2px}
+.card .sub{font-size:10px;color:#666;margin-top:2px}
+.filters{display:flex;gap:4px;margin-bottom:16px}
+.filters button{background:#1a1a2e;color:#888;border:none;padding:4px 12px;border-radius:4px;font-size:11px;cursor:pointer}
+.filters button:hover,.filters button.active{background:#ff6b35;color:#000}
+.chart{background:#1a1a2e;border-radius:8px;padding:16px;margin-bottom:12px;height:150px;position:relative}
+.chart h3{font-size:12px;color:#888;margin-bottom:8px}
+canvas{width:100%;height:120px}
+.refresh{font-size:10px;color:#666;text-align:right;margin-top:4px}
 </style>
 </head>
 <body>
+<header>
 <h1>Bounce Dashboard</h1>
-<p class="sub">Auto-refresh 10s · <span class="live">● Live</span></p>
-<div class="grid" id="cards"></div>
+<div class="nav">
+<a href="/docs" class="active">Dashboard</a>
+<a href="/docs">API Docs</a>
+<a href="/test">Test</a>
+<a href="/metrics">Metrics</a>
+</div>
+</header>
+
+<div class="cards" id="cards"></div>
+
+<div class="filters">
+<button onclick="setRange(5)" id="b5m">5m</button>
+<button onclick="setRange(60)" id="b1h" class="active">1h</button>
+<button onclick="setRange(360)" id="b6h">6h</button>
+<button onclick="setRange(1440)" id="b24h">24h</button>
+<button onclick="setRange(10080)" id="b7d">7d</button>
+</div>
+
+<div class="chart"><h3>Requests/min</h3><canvas id="chart-requests"></canvas></div>
+<div class="chart"><h3>Cache Hit Rate %</h3><canvas id="chart-cache"></canvas></div>
+<div class="chart"><h3>FPB Requests</h3><canvas id="chart-fpb"></canvas></div>
+<p class="refresh" id="last-update"></p>
+
 <script>
-const metrics={uptime_seconds:'Uptime',goroutines:'Goroutines',memory_bytes:'Memory',requests_total:'Requests',cache_hits_total:'Cache Hits',cache_misses_total:'Cache Misses',fpb_requests_total:'FPB Requests',rate_limited_total:'Rate Limited'}
-async function update(){
+let range=60
+const colors={bg:'#0f0f1a',line:'#ff6b35',grid:'#222'}
+
+async function setRange(m){
+ range=m
+ document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'))
+ document.getElementById('b'+m+'m')?.classList.add('active')
+ document.getElementById('b'+m+'h')?.classList.add('active')
+ document.getElementById('b'+m+'d')?.classList.add('active')
+ render()
+}
+
+function drawChart(canvasId,data,label){
+ const c=document.getElementById(canvasId)
+ if(!c)return
+ const ctx=c.getContext('2d'),w=c.width=c.parentElement.offsetWidth-32,h=c.height=120
+ ctx.clearRect(0,0,w,h)
+ if(!data||data.length<2)return
+ const max=Math.max(...data.map(d=>d.value),1)
+ const stepX=w/(data.length-1)
+ ctx.strokeStyle='#222';ctx.lineWidth=1
+ for(let i=0;i<5;i++){const y=(h/5)*i;ctx.beginPath();ctx.moveTo(0,h-y);ctx.lineTo(w,h-y);ctx.stroke()}
+ ctx.strokeStyle=colors.line;ctx.lineWidth=2;ctx.beginPath()
+ data.forEach((d,i)=>{ctx[i?'lineTo':'moveTo'](i*stepX,h-(d.value/max)*h)})
+ ctx.stroke()
+}
+
+let updates=0
+async function render(){
+ updates++
+ const m0=Date.now()
  try{
-  const r=await fetch('/metrics'),t=await r.text()
-  const data={}
-  t.split('\n').forEach(l=>{const m=l.match(/^bounce_(\w+)\s+(\d+)/);if(m)data[m[1]]=parseInt(m[2])})
-  let html=''
-  for(const[key,label]of Object.entries(metrics)){
-   const v=data[key]||0
-   let unit='',display=v
-   if(key==='memory_bytes'){display=(v/1048576).toFixed(1);unit='MB'}
-   if(key==='uptime_seconds'){const m=Math.floor(v/60),s=v%60;display=m+':'+String(s).padStart(2,'0');unit='min'}
-   html+=`<div class="card"><div class="label">${label}</div><div class="value">${display}</div><div class="unit">${unit}</div></div>`
-  }
-  document.getElementById('cards').innerHTML=html
+  const r=await fetch('/api/metrics/history/simple?minutes='+range),snaps=await r.json()
+  if(!Array.isArray(snaps)||snaps.length<2)return
+  
+  // Cards
+  const last=snaps[snaps.length-1],first=snaps[0]
+  const cardData=[
+   {label:'Requests',value:last.requests,sub:'+'+((last.requests-first.requests)/Math.max(1,(last.requests||1))).toFixed(0)+'/min'},
+   {label:'Cache Hits',value:last.cache_hits,sub:last.cache_hits+last.cache_misses>0?((last.cache_hits/(last.cache_hits+last.cache_misses))*100).toFixed(0)+'% rate':''},
+   {label:'FPB Requests',value:last.fpb_requests,sub:'+'+Math.max(0,last.fpb_requests-first.fpb_requests)+' in window'},
+   {label:'Rate Limited',value:last.rate_limited,sub:last.rate_limited>0?'BLOCKED:'+last.rate_limited:'Clean'},
+  ]
+  document.getElementById('cards').innerHTML=cardData.map(c=>`<div class="card"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="sub">${c.sub}</div></div>`).join('')
+  
+  // Charts
+  const reqData=snaps.map((s,i)=>({time:s.time,value:i>0?Math.max(0,s.requests-(snaps[i-1]||s).requests):0}))
+  const cacheData=snaps.map((s,i)=>{
+   const hits=i>0?s.cache_hits-(snaps[i-1]||s).cache_hits:0
+   const miss=i>0?s.cache_misses-(snaps[i-1]||s).cache_misses:0
+   const total=hits+miss
+   return {time:s.time,value:total>0?Math.round((hits/total)*100):0}
+  })
+  const fpbData=snaps.map((s,i)=>({time:s.time,value:i>0?Math.max(0,s.fpb_requests-(snaps[i-1]||s).fpb_requests):0}))
+  
+  drawChart('chart-requests',reqData)
+  drawChart('chart-cache',cacheData)
+  drawChart('chart-fpb',fpbData)
+  
+  document.getElementById('last-update').textContent='Last update: '+new Date().toLocaleTimeString()+' (#'+updates+')'
  }catch(e){}
 }
-update();setInterval(update,10000)
+render()
+setInterval(render,10000)
 </script>
 </body>
 </html>

@@ -75,8 +75,11 @@ rl := newRateLimiter(100, time.Minute)
 r.Use(rl.middleware)
 
 r.Get("/test", apihandler.TestPage)
+r.Get("/", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/dashboard", 302) })
 r.Get("/health", apihandler.Health)
 r.Get("/metrics", metricsHandler)
+r.Get("/api/metrics/history", metrics.HistoryHandler)
+r.Get("/api/metrics/history/simple", metrics.HistoryHandlerSimple)
 r.Get("/dashboard", metrics.DashboardHandler)
 r.Get("/docs", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
 r.Get("/docs/", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
@@ -86,6 +89,7 @@ r.Get("/docs/", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w,
 	apihandler.NewInsightsHandler().RegisterRoutes(r)
 
 	sched.Start()
+metrics.StartRecording()
 	go func() { fpb.GetCompetitions(); fpb.GetStandings("10902"); slog.Info("pre-warm complete") }()
 	srv := &http.Server{Addr: ":" + port, Handler: r}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

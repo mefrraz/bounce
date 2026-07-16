@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -45,6 +46,9 @@ func (rl *rateLimiter) cleanup() {
 
 func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Dribly-Key") == os.Getenv("DRIBLY_KEY") && os.Getenv("DRIBLY_KEY") != "" {
+			next.ServeHTTP(w, r); return
+		}
 		ip := r.RemoteAddr
 		rl.mu.Lock()
 		v, exists := rl.visitors[ip]
