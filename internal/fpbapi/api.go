@@ -7,7 +7,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
+	"sync"
+	"sync/atomic"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/mefrraz/bounce/internal/cache"
@@ -69,19 +70,27 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	all := scraper.ScrapeGames(h.String(), "FINALIZADO")
 	log.Printf("[games] %d for club %s season %s", len(all), clubID, season)
 
-	// Enrich scores via get_game_layer POST
-	scored := 0
+	// Enrich scores via get_game_layer POST (parallel, no rate limit)
+	scored := int32(0)
+	sem := make(chan struct{}, 2) // 2 concurrent requests
+	var wg sync.WaitGroup
 	for i := range all {
-		if all[i].HomeScore != nil { scored++; continue }
-		gs := f.fetchScore(all[i].ID)
-		if gs != nil {
-			all[i].HomeScore = gs.HomeScore
-			all[i].AwayScore = gs.AwayScore
-			all[i].Status = "FINALIZADO"
-			scored++
-		}
-		time.Sleep(200 * time.Millisecond)
+		if all[i].HomeScore != nil { continue }
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			gs := f.fetchScore(all[idx].ID)
+			if gs != nil {
+				all[idx].HomeScore = gs.HomeScore
+				all[idx].AwayScore = gs.AwayScore
+				all[idx].Status = "FINALIZADO"
+				atomic.AddInt32(&scored, 1)
+			}
+		}(i)
 	}
+	wg.Wait()
 	log.Printf("[scores] %d/%d enriched for club %s season %s", scored, len(all), clubID, season)
 
 	raw2, _ := json.Marshal(all)
