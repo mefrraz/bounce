@@ -8,9 +8,13 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/fpbapi"
 )
 
@@ -19,20 +23,23 @@ type Handler struct {
 }
 
 func NewHandler(fpb *fpbapi.FPBAPI) *Handler {
-	return &Handler{FPB: fpb}
+return &Handler{FPB: fpb}
 }
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Get("/api/games", h.GetGames)
-	r.Get("/api/standings/{compID}", h.GetStandings)
-	r.Get("/api/game/{internalID}", h.GetGame)
-	r.Get("/api/competitions", h.GetCompetitions)
-	r.Get("/api/athlete/{id}", h.GetAthlete)
-	r.Get("/api/team/{id}", h.GetTeam)
-	r.Get("/api/club/{clubID}/teams", h.GetClubTeams)
-	r.Get("/api/tugabasket/standings", h.GetTugaBasketStandings)
-	r.Get("/api/tugabasket/players", h.GetTugaBasketPlayers)
-	r.Get("/api/tugabasket/teams", h.GetTugaBasketTeams)
+r.Get("/api/games", h.GetGames)
+r.Get("/api/games/today", h.GetToday)
+r.Get("/api/games/live", h.GetLive)
+r.Get("/api/games/paginated", h.GetGamesPaginated)
+r.Get("/api/standings/{compID}", h.GetStandings)
+r.Get("/api/game/{internalID}", h.GetGame)
+r.Get("/api/competitions", h.GetCompetitions)
+r.Get("/api/athlete/{id}", h.GetAthlete)
+r.Get("/api/team/{id}", h.GetTeam)
+r.Get("/api/club/{clubID}/teams", h.GetClubTeams)
+r.Get("/api/tugabasket/standings", h.GetTugaBasketStandings)
+r.Get("/api/tugabasket/players", h.GetTugaBasketPlayers)
+r.Get("/api/tugabasket/teams", h.GetTugaBasketTeams)
 }
 
 // GetGames supports:
@@ -78,10 +85,10 @@ func (h *Handler) GetGames(w http.ResponseWriter, r *http.Request) {
 		games, err := h.FPB.GetGamesByClub(club, season, category, gender)
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-			return
+		return
 		}
 		writeJSON(w, http.StatusOK, games)
-		return
+	return
 	}
 
 	if competition != "" {
@@ -90,10 +97,10 @@ func (h *Handler) GetGames(w http.ResponseWriter, r *http.Request) {
 		games, err := h.FPB.GetGamesByCompetition(competition, season)
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-			return
+		return
 		}
 		writeJSON(w, http.StatusOK, games)
-		return
+	return
 	}
 
 	writeJSON(w, http.StatusOK, []interface{}{})
@@ -113,7 +120,7 @@ func (h *Handler) GetStandings(w http.ResponseWriter, r *http.Request) {
 	standings, err := h.FPB.GetStandings(compID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-		return
+	return
 	}
 	writeJSON(w, http.StatusOK, standings)
 }
@@ -132,7 +139,7 @@ func (h *Handler) GetGame(w http.ResponseWriter, r *http.Request) {
 	game, err := h.FPB.GetGame(id)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-		return
+	return
 	}
 	writeJSON(w, http.StatusOK, game)
 }
@@ -149,7 +156,7 @@ func (h *Handler) GetCompetitions(w http.ResponseWriter, r *http.Request) {
 	comps, err := h.FPB.GetCompetitions()
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-		return
+	return
 	}
 	writeJSON(w, http.StatusOK, comps)
 }
@@ -168,7 +175,7 @@ func (h *Handler) GetAthlete(w http.ResponseWriter, r *http.Request) {
 	a, err := h.FPB.GetAthlete(id)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-		return
+	return
 	}
 	writeJSON(w, http.StatusOK, a)
 }
@@ -178,7 +185,7 @@ func (h *Handler) GetTeam(w http.ResponseWriter, r *http.Request) {
 	td, err := h.FPB.GetTeam(id)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-		return
+	return
 	}
 	writeJSON(w, http.StatusOK, td)
 }
@@ -188,7 +195,7 @@ func (h *Handler) GetClubTeams(w http.ResponseWriter, r *http.Request) {
 	teams, err := h.FPB.GetClubTeams(clubID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-		return
+	return
 	}
 	writeJSON(w, http.StatusOK, teams)
 }
@@ -206,12 +213,12 @@ func (h *Handler) GetTugaBasketStandings(w http.ResponseWriter, r *http.Request)
 	compID := r.URL.Query().Get("competitionId")
 	if compID == "" {
 		http.Error(w, `{"error":"competitionId required"}`, http.StatusBadRequest)
-		return
+	return
 	}
 	standings, err := h.FPB.GetTugaBasketStandings(compID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-		return
+	return
 	}
 	writeJSON(w, http.StatusOK, standings)
 }
@@ -229,12 +236,12 @@ func (h *Handler) GetTugaBasketPlayers(w http.ResponseWriter, r *http.Request) {
 	compID := r.URL.Query().Get("competitionId")
 	if compID == "" {
 		http.Error(w, `{"error":"competitionId required"}`, http.StatusBadRequest)
-		return
+	return
 	}
 	players, err := h.FPB.GetTugaBasketPlayers(compID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-		return
+	return
 	}
 	writeJSON(w, http.StatusOK, players)
 }
@@ -252,12 +259,12 @@ func (h *Handler) GetTugaBasketTeams(w http.ResponseWriter, r *http.Request) {
 	compID := r.URL.Query().Get("competitionId")
 	if compID == "" {
 		http.Error(w, `{"error":"competitionId required"}`, http.StatusBadRequest)
-		return
+	return
 	}
 	teams, err := h.FPB.GetTugaBasketTeams(compID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-		return
+	return
 	}
 	writeJSON(w, http.StatusOK, teams)
 }
@@ -266,4 +273,66 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
+}
+
+func jsonError(w http.ResponseWriter, msg, code string, status int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": msg, "code": code, "status": fmt.Sprint(status)})
+}
+
+// GetToday returns today's games across all known competitions.
+func (h *Handler) GetToday(w http.ResponseWriter, r *http.Request) {
+		_ = time.Now()
+	var all []interface{}
+	for _, c := range []string{"10902","10903","10904","10906","10907"} {
+		games, _ := h.FPB.GetGamesByCompetition(c, "2025/2026")
+		for _, g := range games {
+			if cache.IsToday(g.Date) { all = append(all, g) }
+		}
+	}
+	writeJSON(w, http.StatusOK, all)
+}
+
+// GetLive returns games currently in progress.
+func (h *Handler) GetLive(w http.ResponseWriter, r *http.Request) {
+	var live []interface{}
+	for _, c := range []string{"10902","10903","10904","10906","10907"} {
+		games, _ := h.FPB.GetGamesByCompetition(c, "2025/2026")
+		for _, g := range games {
+			if g.Status == "AO VIVO" || g.Status == "EM CURSO" { live = append(live, g) }
+		}
+	}
+	writeJSON(w, http.StatusOK, live)
+}
+
+// GetGamesPaginated handles ?club=ID with pagination.
+func (h *Handler) GetGamesPaginated(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	limit := atoiQ(q, "limit", 50)
+	offset := atoiQ(q, "offset", 0)
+	club := q.Get("club")
+	season := q.Get("season")
+	if season == "" { season = "2025/2026" }
+
+	games, err := h.FPB.GetGamesByClub(club, season, "Senior", "masculino")
+	if err != nil { jsonError(w, err.Error(), "FETCH_ERROR", 502); return }
+
+	total := len(games)
+	if offset >= total { offset = total }
+	end := offset + limit
+	if end > total { end = total }
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"total": total, "limit": limit, "offset": offset,
+		"games": games[offset:end],
+	})
+}
+
+func atoiQ(q url.Values, key string, defaultVal int) int {
+	s := q.Get(key)
+	if s == "" { return defaultVal }
+	v := 0
+	for _, c := range s { v = v*10 + int(c-'0') }
+return v
 }

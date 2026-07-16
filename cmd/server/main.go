@@ -59,12 +59,13 @@ func main() {
 	)
 
 r := chi.NewRouter()
-r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP)
+r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
 r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{"*"}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
 
 rl := newRateLimiter(100, time.Minute)
 r.Use(rl.middleware)
 
+r.Get("/test", apihandler.TestPage)
 r.Get("/health", apihandler.Health)
 r.Get("/metrics", metricsHandler)
 r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/swagger.json") })
@@ -103,7 +104,7 @@ func metricsHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprintf(w, "# HELP bounce_uptime_seconds Uptime in seconds\n# TYPE bounce_uptime_seconds gauge\nbounce_uptime_seconds %d\n", uptime)
 	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
+runtime.ReadMemStats(&m)
 	fmt.Fprintf(w, "# HELP bounce_goroutines Number of goroutines\n# TYPE bounce_goroutines gauge\nbounce_goroutines %d\n", runtime.NumGoroutine())
 	fmt.Fprintf(w, "# HELP bounce_memory_bytes Allocated memory\n# TYPE bounce_memory_bytes gauge\nbounce_memory_bytes %d\n", m.Alloc)
 }

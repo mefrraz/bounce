@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Bounce — Test</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#0f0f1a;color:#ddd;padding:16px;max-width:700px;margin:0 auto}
+h1{color:#ff6b35;font-size:18px}h2{font-size:14px;margin:12px 0 6px;color:#ff6b35}
+.endpoint{background:#1a1a2e;border-radius:6px;padding:10px;margin-bottom:8px}
+.url{color:#4fc3f7;font-family:monospace;font-size:12px}
+input,button{background:#0a0a15;border:1px solid #333;color:#ddd;padding:5px 10px;border-radius:4px;font-size:12px}
+button{background:#ff6b35;color:#000;border:none;cursor:pointer;margin:4px 4px 0 0}
+pre{background:#0a0a15;padding:8px;border-radius:4px;margin-top:6px;max-height:200px;overflow:auto;font-size:11px}
+.cache-hit{color:#4caf50}.cache-miss{color:#ff9800}.ws-on{color:#4caf50}.ws-off{color:#f44336}
+.stats{display:flex;gap:12px;flex-wrap:wrap;font-size:11px}
+.stat{background:#1a1a2e;padding:6px 10px;border-radius:4px}
+</style>
+</head>
+<body>
+<h1>Bounce Test Console</h1>
+<div class="stats" id="metrics"></div>
+
+<h2>Endpoints</h2>
+<div class="endpoint"><span class="url">/api/games?club=119&season=2025/2026</span><br>
+<input id="gclub" value="119" size="6"><input id="gseason" value="2025/2026" size="10"><button onclick="call('/api/games?club='+$('gclub')+'&season='+$('gseason'),'games')">Test</button><pre id="out-games"></pre></div>
+
+<div class="endpoint"><span class="url">/api/game/413420</span><br>
+<input id="gid" value="413420" size="10"><button onclick="call('/api/game/'+$('gid'),'game')">Test</button><pre id="out-game"></pre></div>
+
+<div class="endpoint"><span class="url">/api/standings/10902</span><br>
+<input id="sid" value="10902" size="8"><button onclick="call('/api/standings/'+$('sid'),'std')">Test</button><pre id="out-std"></pre></div>
+
+<div class="endpoint"><span class="url">/api/tugabasket/standings?competitionId=1</span><br>
+<input id="tbid" value="1" size="6"><button onclick="call('/api/tugabasket/standings?competitionId='+$('tbid'),'tb')">Test</button><pre id="out-tb"></pre></div>
+
+<div class="endpoint"><span class="url">/api/games/today</span>
+<button onclick="call('/api/games/today','today')">Test</button><pre id="out-today"></pre></div>
+
+<div class="endpoint"><span class="url">/api/games/live</span>
+<button onclick="call('/api/games/live','live')">Test</button><pre id="out-live"></pre></div>
+
+<h2>WebSocket</h2>
+<div class="endpoint">
+<span id="ws-status" class="ws-off">🔴 Offline</span>
+<input id="ws-id" value="413420" size="10">
+<button onclick="wsConnect()">Connect</button>
+<button onclick="wsDisconnect()">Disconnect</button>
+<pre id="ws-log"></pre>
+</div>
+
+<script>
+const $=id=>document.getElementById(id).value
+async function call(path,id){
+ const el=document.getElementById('out-'+id),t0=Date.now()
+ el.textContent='...'
+ try{
+  const r=await fetch(path),t=await r.text(),ms=Date.now()-t0
+  try{el.textContent=(r.headers.get('X-Cache')||'')+' ('+ms+'ms)\n'+JSON.stringify(JSON.parse(t),null,2)}catch(e){el.textContent=t}
+ }catch(e){el.textContent='Error: '+e.message}
+}
+let ws
+function wsConnect(){
+ const id=document.getElementById('ws-id').value
+ ws=new WebSocket('ws://'+location.host+'/ws/game/'+id)
+ ws.onopen=()=>{document.getElementById('ws-status').className='ws-on';document.getElementById('ws-status').textContent='🟢 '+id}
+ ws.onmessage=m=>{const el=document.getElementById('ws-log');el.textContent=new Date().toLocaleTimeString()+' '+m.data+'\n'+el.textContent}
+ ws.onclose=()=>{document.getElementById('ws-status').className='ws-off';document.getElementById('ws-status').textContent='🔴 Offline'}
+}
+function wsDisconnect(){if(ws)ws.close()}
+setInterval(async()=>{
+ try{const r=await fetch('/metrics');document.getElementById('metrics').innerHTML=r.text().then(t=>t.split('\n').filter(l=>l&&!l.startsWith('#')).map(l=>'<div class="stat">'+l.replace('bounce_','')+'</div>').join(''))}catch(e){}
+},30000)
+</script>
+</body>
+</html>
