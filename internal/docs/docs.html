@@ -16,7 +16,8 @@ body{background-image:radial-gradient(circle at 15% 0%,rgba(255,107,53,0.08) 0%,
 nav.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:64px;background:rgba(9,9,11,0.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
 [data-theme="light"] nav.topbar{background:rgba(250,250,250,0.85)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-0.02em}
-.brand-mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));border:2px dashed rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,0.5)}
+.brand-mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.brand-mark svg{display:block;width:14px;height:14px}
 .brand span.dim{color:var(--muted);font-weight:500}
 .nav-links{display:flex;align-items:center;gap:4px}
 .nav-links a{color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;transition:all .18s}
@@ -68,7 +69,7 @@ pre{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px
 </head>
 <body>
 <nav class="topbar">
-<div class="brand"><div class="brand-mark" title="Substituir pelo logo — ver TODO.md">?</div>Bounce <span class="dim">/ docs</span></div>
+<div class="brand"><div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M4.8 4.8c1.6 2.4 4.8 4 7.2 4s5.6-1.6 7.2-4"/><path d="M4.8 19.2c1.6-2.4 4.8-4 7.2-4s5.6 1.6 7.2 4"/><line x1="12" y1="2" x2="12" y2="22"/></svg></div>Bounce <span class="dim">/ docs</span></div>
 <div class="nav-links">
 <a href="/dashboard">Dashboard</a>
 <a href="/docs" class="active">API Docs</a>
