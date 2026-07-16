@@ -10,21 +10,21 @@
 :root{--accent:#ff6b35;--accent-dim:#e85a2a;--accent-light:#ff8c5f;--data:#4fc3f7;--bg:#09090b;--card:#18181b;--card-hover:#27272a;--border:rgba(255,255,255,0.1);--border-strong:rgba(255,255,255,0.15);--text:#f4f4f5;--muted:#71717a;--muted2:#52525b;--green:#22c55e;--red:#ef4444}
 [data-theme="light"]{--accent:#e85a2a;--accent-dim:#cc4f1f;--accent-light:#ff7f55;--data:#0284c7;--bg:#fafafa;--card:#fff;--card-hover:#f4f4f5;--border:rgba(0,0,0,0.08);--border-strong:rgba(0,0,0,0.14);--text:#18181b;--muted:#71717a;--muted2:#a1a1aa;--green:#16a34a;--red:#dc2626}
 *{box-sizing:border-box;margin:0;padding:0}
-html{scrollbar-gutter:stable}html,body{background:var(--bg);color:var(--text);font-family:'Outfit','Segoe UI',sans-serif;min-height:100vh}
+html{scrollbar-gutter:stable;background:var(--bg)}html,body{background:var(--bg);color:var(--text);font-family:'Outfit','Segoe UI',sans-serif;min-height:100vh}
 body{background-image:radial-gradient(circle at 15% 0%,rgba(255,107,53,0.08) 0%,transparent 45%),radial-gradient(circle at 85% 15%,rgba(79,195,247,0.04) 0%,transparent 40%);background-attachment:fixed}
 [data-theme="light"] body{background-image:radial-gradient(circle at 15% 0%,rgba(255,107,53,0.04) 0%,transparent 45%),radial-gradient(circle at 85% 15%,rgba(2,132,199,0.03) 0%,transparent 40%)}
 
-nav.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:64px;background:rgba(9,9,11,0.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+nav.topbar{position:sticky;top:0;z-index:50;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 24px;height:64px;background:rgba(9,9,11,0.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
 [data-theme="light"] nav.topbar{background:rgba(250,250,250,0.85)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-0.02em}
 .brand-mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .brand-mark svg{display:block;width:14px;height:14px}
 .brand span.dim{color:var(--muted);font-weight:500}
-.nav-links{display:flex;align-items:center;gap:4px}
+.nav-links{display:flex;align-items:center;justify-content:center;gap:4px}
 .nav-links a{color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;transition:all .18s}
 .nav-links a:hover{color:var(--text);background:rgba(128,128,128,0.1)}
 .nav-links a.active{color:var(--accent);background:rgba(255,107,53,0.1)}
-.nav-right{display:flex;align-items:center;gap:8px}
+.nav-right{display:flex;align-items:center;justify-content:flex-end;gap:8px}
 .toggle-btn{background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);border-radius:6px;transition:all .15s}
 .toggle-btn:hover{color:var(--text);background:rgba(128,128,128,0.1)}
 .toggle-btn svg{display:block}
@@ -115,6 +115,12 @@ Bounce <span class="dim">/ dashboard</span>
 <button class="range-btn" data-minutes="1440">24h</button>
 <button class="range-btn" data-minutes="10080">7d</button>
 </div>
+<div class="range-bar" id="refreshBar">
+<button class="range-btn active" data-refresh="live">Live</button>
+<button class="range-btn" data-refresh="5">5s</button>
+<button class="range-btn" data-refresh="15">15s</button>
+<button class="range-btn" data-refresh="60">60s</button>
+</div>
 </div>
 
 <section class="metrics-grid">
@@ -168,13 +174,14 @@ Bounce <span class="dim">/ dashboard</span>
 </div>
 </section>
 
-<footer>Bounce API · auto-refresh a cada 10s · <span id="footerRange">últimos 5 minutos</span></footer>
+<footer>Bounce API · auto-refresh <span id="footerRefresh">WebSocket</span> · <span id="footerRange">últimos 5 minutos</span></footer>
 </main>
 
 <script>
 (function(){
 const RANGE_LABELS={5:'últimos 5 minutos',60:'última 1 hora',360:'últimas 6 horas',1440:'últimas 24 horas',10080:'últimos 7 dias'};
-let currentMinutes=5,refreshTimer=null,isFetching=false,lastSnapshots=[];
+const REFRESH_LABELS={live:'WebSocket',5:'a cada 5s',15:'a cada 15s',60:'a cada 60s'};
+let currentMinutes=5,refreshMode='live',refreshSecs=0,refreshTimer=null,isFetching=false,lastSnapshots=[],ws=null;
 
 function $(id){return document.getElementById(id)}
 
@@ -311,14 +318,31 @@ console.error('Bounce dashboard fetch error:',err)
 }finally{isFetching=false}
 }
 
-function scheduleRefresh(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=setInterval(fetchMetrics,10000)}
+function updateFooter(){
+$('footerRange').textContent=RANGE_LABELS[currentMinutes]||'últimos '+currentMinutes+' min';
+$('footerRefresh').textContent=REFRESH_LABELS[refreshMode]||''
+}
+
+function scheduleRefresh(){
+if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null}
+if(ws){try{ws.close()}catch(e){}}
+if(refreshMode==='live'){connectWS();return}
+refreshSecs=parseInt(refreshMode)||10;
+refreshTimer=setInterval(fetchMetrics,refreshSecs*1000)
+}
 
 $('rangeBar').addEventListener('click',function(e){
 var btn=e.target.closest('.range-btn');if(!btn)return;
-document.querySelectorAll('.range-btn').forEach(function(b){b.classList.remove('active')});
+var rs=this.querySelectorAll('.range-btn');rs.forEach(function(b){b.classList.remove('active')});
 btn.classList.add('active');currentMinutes=Number(btn.dataset.minutes);
-$('footerRange').textContent=RANGE_LABELS[currentMinutes]||'últimos '+currentMinutes+' min';
-fetchMetrics()
+updateFooter();fetchMetrics()
+});
+
+$('refreshBar').addEventListener('click',function(e){
+var btn=e.target.closest('.range-btn');if(!btn)return;
+var rs=this.querySelectorAll('.range-btn');rs.forEach(function(b){b.classList.remove('active')});
+btn.classList.add('active');refreshMode=btn.dataset.refresh;
+updateFooter();scheduleRefresh()
 });
 
 // Theme
@@ -328,16 +352,14 @@ function updateToggleIcon(t){$('themeToggle').innerHTML=t==='dark'?'<svg width="
 $('themeToggle').addEventListener('click',function(){var t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);localStorage.setItem('bounce-theme',t);updateToggleIcon(t);renderCharts(lastSnapshots)});
 
 // WebSocket live indicator
-var ws=null;
 function connectWS(){
 try{
 ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/dashboard');
 ws.onopen=function(){setLive(true)};
 ws.onmessage=function(e){try{var d=JSON.parse(e.data);$('mRequests').textContent=fmtNumber(d.requests||0);$('mFpb').textContent=fmtNumber(d.fpb_requests||0);$('mLimited').textContent=fmtNumber(d.rate_limited||0)}catch(ex){}};
-ws.onclose=function(){setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
+ws.onclose=function(){if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
 }catch(ex){}
 }
-connectWS();
 
 window.addEventListener('resize',function(){renderCharts(lastSnapshots)});
 fetchMetrics();scheduleRefresh()
