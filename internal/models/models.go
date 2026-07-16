@@ -50,9 +50,14 @@ type Competition struct {
 
 type GameDetail struct {
 	Game
+	HomeAbbrev string       `json:"abrev_casa,omitempty"`
+	AwayAbbrev string       `json:"abrev_fora,omitempty"`
+	Phase      string       `json:"fase,omitempty"`
+	Attendance int          `json:"espetadores"`
 	Periods    []Period     `json:"periodos,omitempty"`
 	HomeStats  []PlayerStat `json:"stats_casa,omitempty"`
 	AwayStats  []PlayerStat `json:"stats_fora,omitempty"`
+	GameLeaders []GameLeader `json:"game_leaders,omitempty"`
 }
 
 type Period struct {
@@ -61,19 +66,39 @@ type Period struct {
 	AwayScore int `json:"fora"`
 }
 
+type GameLeader struct {
+	Category string         `json:"categoria"`
+	Home     LeaderPlayer   `json:"casa"`
+	Away     LeaderPlayer   `json:"fora"`
+}
+
+type LeaderPlayer struct {
+	Name string `json:"nome"`
+	Stat string `json:"valor"`
+}
+
 type PlayerStat struct {
-	PlayerID   int    `json:"atleta_id"`
-	Name       string `json:"nome"`
-	Number     int    `json:"numero,omitempty"`
-	Points     int    `json:"pts"`
-	Rebounds   int    `json:"reb,omitempty"`
-	Assists    int    `json:"ast,omitempty"`
-	Blocks     int    `json:"blk,omitempty"`
-	Steals     int    `json:"stl,omitempty"`
-	Turnovers  int    `json:"dl,omitempty"`
-	Fouls      int    `json:"fp,omitempty"`
-	Minutes    string `json:"min,omitempty"`
-	Efficiency int    `json:"val,omitempty"`
+	Name     string `json:"nome"`
+	Number   int    `json:"numero,omitempty"`
+	MIN      string `json:"min,omitempty"`
+	PTS      int    `json:"pts"`
+	L2       string `json:"l2,omitempty"`
+	L2Pct    string `json:"l2pct,omitempty"`
+	L3       string `json:"l3,omitempty"`
+	L3Pct    string `json:"l3pct,omitempty"`
+	LL       string `json:"ll,omitempty"`
+	LLPct    string `json:"llpct,omitempty"`
+	RO       int    `json:"ro,omitempty"`
+	RD       int    `json:"rd,omitempty"`
+	RT       int    `json:"rt,omitempty"`
+	AS       int    `json:"as,omitempty"`
+	RB       int    `json:"rb,omitempty"`
+	TO       int    `json:"to,omitempty"`
+	DL       int    `json:"dl,omitempty"`
+	FC       int    `json:"fc,omitempty"`
+	FS       int    `json:"fs,omitempty"`
+	PlusMinus int   `json:"mais_menos,omitempty"`
+	VAL      int    `json:"val,omitempty"`
 }
 
 type Team struct {

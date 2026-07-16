@@ -229,54 +229,77 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 
 	detail := &models.GameDetail{}
 
-	// Teams: .team.home .bigName / .team.away .bigName (Dribly selectors)
+	// Phase
+	detail.Phase = strings.TrimSpace(doc.Find(".phase").First().Text())
+
+	// Teams + abbreviations
 	detail.HomeTeam = strings.TrimSpace(doc.Find(".team.home .bigName").First().Text())
 	detail.AwayTeam = strings.TrimSpace(doc.Find(".team.away .bigName").First().Text())
+	detail.HomeAbbrev = strings.TrimSpace(doc.Find(".team.home .smallName").First().Text())
+	detail.AwayAbbrev = strings.TrimSpace(doc.Find(".team.away .smallName").First().Text())
 
-	// Logos: .team.home img / .team.away img
+	// Logos
 	detail.HomeLogo, _ = doc.Find(".team.home img").First().Attr("src")
 	detail.AwayLogo, _ = doc.Find(".team.away img").First().Attr("src")
 
-	// Scores: .points span (Dribly: 2 spans with scores)
+	// Scores
 	pointsSpans := doc.Find(".points span")
 	if pointsSpans.Length() >= 2 {
 		s1 := atoi(strings.TrimSpace(pointsSpans.Eq(0).Text()))
 		s2 := atoi(strings.TrimSpace(pointsSpans.Eq(1).Text()))
 		if s1 > 0 || s2 > 0 {
-			detail.HomeScore = &s1
-			detail.AwayScore = &s2
+			detail.HomeScore = &s1; detail.AwayScore = &s2
 			detail.Status = "FINALIZADO"
 		}
 	}
 
-	// Date: .date (Dribly: "30 MAI 2026")
-	dateText := strings.TrimSpace(doc.Find(".date").First().Text())
-	detail.Date = ParseDatePt(dateText)
-
-	// Venue: .location a
+	// Date, venue, time
+	detail.Date = ParseDatePt(strings.TrimSpace(doc.Find(".date").First().Text()))
 	detail.Venue = strings.TrimSpace(doc.Find(".location a").First().Text())
-
-	// Time: .match-time
 	timeText := strings.TrimSpace(doc.Find(".match-time").First().Text())
 	detail.Time = strings.ReplaceAll(strings.ReplaceAll(timeText, " H ", ":"), " ", "")
 
-	// Periods: .match-period .partial-score (Dribly: "21 - 20")
+	// Attendance
+	attText := strings.TrimSpace(doc.Find(".attendance").First().Text())
+	if m := regexp.MustCompile(`(\d+)`).FindStringSubmatch(attText); len(m) > 1 {
+		detail.Attendance = atoi(m[1])
+	}
+
+	// Periods
 	doc.Find(".match-period").Each(func(_ int, period *goquery.Selection) {
-		label := strings.TrimSpace(period.Find("p").First().Text())
 		scoreText := strings.TrimSpace(period.Find(".partial-score").First().Text())
 		parts := strings.Split(scoreText, "-")
 		if len(parts) == 2 {
-			hs := atoi(strings.TrimSpace(parts[0]))
-			as := atoi(strings.TrimSpace(parts[1]))
 			detail.Periods = append(detail.Periods, models.Period{
-				Number: len(detail.Periods) + 1, HomeScore: hs, AwayScore: as,
+				Number: len(detail.Periods) + 1,
+				HomeScore: atoi(strings.TrimSpace(parts[0])),
+				AwayScore: atoi(strings.TrimSpace(parts[1])),
 			})
-			_ = label
 		}
 	})
 
-	// Player stats: table.ficha-tabela tbody tr (home and away)
-	parsePlayerTable := func(sel *goquery.Selection) []models.PlayerStat {
+	// Game Leaders (top performers)
+	doc.Find(".performance-wrapper").Each(func(_ int, w *goquery.Selection) {
+		cat := strings.TrimSpace(w.Find(".category-name").First().Text())
+		if cat == "" { cat = strings.TrimSpace(w.Find(".divider span").First().Text()) }
+		players := w.Find(".player")
+		if players.Length() >= 2 {
+			detail.GameLeaders = append(detail.GameLeaders, models.GameLeader{
+				Category: cat,
+				Home: models.LeaderPlayer{
+					Name: strings.TrimSpace(players.Eq(0).Find(".name").First().Text()),
+					Stat: strings.TrimSpace(players.Eq(0).Find(".valor").First().Text()),
+				},
+				Away: models.LeaderPlayer{
+					Name: strings.TrimSpace(players.Eq(1).Find(".name").First().Text()),
+					Stat: strings.TrimSpace(players.Eq(1).Find(".valor").First().Text()),
+				},
+			})
+		}
+	})
+
+	// Full box score (22 fields)
+	parseBoxScore := func(sel *goquery.Selection) []models.PlayerStat {
 		var stats []models.PlayerStat
 		sel.Find("tbody tr").Each(func(_ int, row *goquery.Selection) {
 			cells := row.Find("td")
@@ -285,22 +308,31 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 			if name == "" || name == "Total" { return }
 			s := models.PlayerStat{
 				Name: name, Number: atoi(strings.TrimSpace(cells.Eq(0).Text())),
-				Points: atoi(strings.TrimSpace(cells.Eq(2).Text())),
+				PTS: atoi(strings.TrimSpace(cells.Eq(2).Text())),
 			}
-			if cells.Length() > 3 { s.Rebounds = atoi(strings.TrimSpace(cells.Eq(3).Text())) }
-			if cells.Length() > 4 { s.Assists = atoi(strings.TrimSpace(cells.Eq(4).Text())) }
-			if cells.Length() > 5 { s.Blocks = atoi(strings.TrimSpace(cells.Eq(5).Text())) }
-			if cells.Length() > 6 { s.Steals = atoi(strings.TrimSpace(cells.Eq(6).Text())) }
-			if cells.Length() > 7 { s.Turnovers = atoi(strings.TrimSpace(cells.Eq(7).Text())) }
-			if cells.Length() > 8 { s.Fouls = atoi(strings.TrimSpace(cells.Eq(8).Text())) }
+			if cells.Length() > 3 { s.MIN = strings.TrimSpace(cells.Eq(3).Text()) }
+			if cells.Length() > 4 { s.L2 = strings.TrimSpace(cells.Eq(4).Text()) }
+			if cells.Length() > 5 { s.L2Pct = strings.TrimSpace(cells.Eq(5).Text()) }
+			if cells.Length() > 6 { s.L3 = strings.TrimSpace(cells.Eq(6).Text()) }
+			if cells.Length() > 7 { s.L3Pct = strings.TrimSpace(cells.Eq(7).Text()) }
+			if cells.Length() > 8 { s.LL = strings.TrimSpace(cells.Eq(8).Text()) }
+			if cells.Length() > 9 { s.LLPct = strings.TrimSpace(cells.Eq(9).Text()) }
+			if cells.Length() > 10 { s.RO = atoi(strings.TrimSpace(cells.Eq(10).Text())) }
+			if cells.Length() > 11 { s.RD = atoi(strings.TrimSpace(cells.Eq(11).Text())) }
+			if cells.Length() > 12 { s.RT = atoi(strings.TrimSpace(cells.Eq(12).Text())) }
+			if cells.Length() > 13 { s.AS = atoi(strings.TrimSpace(cells.Eq(13).Text())) }
+			if cells.Length() > 14 { s.RB = atoi(strings.TrimSpace(cells.Eq(14).Text())) }
+			if cells.Length() > 15 { s.TO = atoi(strings.TrimSpace(cells.Eq(15).Text())) }
+			if cells.Length() > 16 { s.DL = atoi(strings.TrimSpace(cells.Eq(16).Text())) }
+			if cells.Length() > 17 { s.FC = atoi(strings.TrimSpace(cells.Eq(17).Text())) }
 			stats = append(stats, s)
 		})
 		return stats
 	}
 	doc.Find(".game-detail .table-responsive, table.ficha-tabela").Each(func(i int, table *goquery.Selection) {
-		stats := parsePlayerTable(table)
-		if i == 0 && len(stats) > 0 { detail.HomeStats = stats }
-		if i == 1 && len(stats) > 0 { detail.AwayStats = stats }
+		s := parseBoxScore(table)
+		if i == 0 && len(s) > 0 { detail.HomeStats = s }
+		if i == 1 && len(s) > 0 { detail.AwayStats = s }
 	})
 
 	return detail, nil
