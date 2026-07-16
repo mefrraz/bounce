@@ -7,10 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"sync"
-	"sync/atomic"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/httpclient"
 	"github.com/mefrraz/bounce/internal/models"
@@ -47,16 +44,11 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 		var c []models.Game
 		if err := json.Unmarshal(raw, &c); err == nil { return c, nil }
 	}
-	parts := strings.Split(season, "/")
-	if len(parts) != 2 { return nil, fmt.Errorf("invalid season: %s", season) }
-	ys, ye := parts[0], parts[1]
 
 	p := url.Values{}
-	p.Set("action", "get_more_days")
-	p.Set("epoca", season); p.Set("clube", clubID)
-	p.Set("period[time_option]", "fromInit")
-	p.Set("period[from_date]", ys+"/09/01")
-	p.Set("period[to_date]", ye+"/07/31")
+	p.Set("action", "get_results")
+	p.Set("epoca", season)
+	p.Set("clube", clubID)
 	body, err := f.http.Get(fpbBase + "/wp-admin/admin-ajax.php?" + p.Encode())
 	if err != nil { return nil, err }
 	var ar struct{ Result interface{}; Hasmore bool }
@@ -68,58 +60,11 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 		for _, item := range v { if s, ok := item.(string); ok { h.WriteString(s) } }
 	}
 	all := scraper.ScrapeGames(h.String(), "FINALIZADO")
-	log.Printf("[games] %d for club %s season %s", len(all), clubID, season)
-
-	// Enrich scores via get_game_layer POST (parallel, no rate limit)
-	scored := int32(0)
-	sem := make(chan struct{}, 5) // 2 concurrent requests
-	var wg sync.WaitGroup
-	for i := range all {
-		if all[i].HomeScore != nil { continue }
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			gs := f.fetchScore(all[idx].ID)
-			if gs != nil {
-				all[idx].HomeScore = gs.HomeScore
-				all[idx].AwayScore = gs.AwayScore
-				all[idx].Status = "FINALIZADO"
-				atomic.AddInt32(&scored, 1)
-			}
-		}(i)
-	}
-	wg.Wait()
-	log.Printf("[scores] %d/%d enriched for club %s season %s", scored, len(all), clubID, season)
+	log.Printf("[results] %d games for club %s season %s", len(all), clubID, season)
 
 	raw2, _ := json.Marshal(all)
 	f.cache.Set(key, raw2, cache.TTLToday)
 	return all, nil
-}
-
-type gameScore struct{ HomeScore, AwayScore *int }
-
-func (f *FPBAPI) fetchScore(internalID string) *gameScore {
-	body := "action=get_game_layer&matchId=" + internalID
-	resp, err := f.http.PostFast(fpbBase+"/wp-admin/admin-ajax.php", body)
-	if err != nil { return nil }
-	var layer struct{ Header string `json:"header"` }
-	if err := json.Unmarshal(resp, &layer); err != nil || layer.Header == "" { return nil }
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(layer.Header))
-	if err != nil { return nil }
-	spans := doc.Find(".points span")
-	if spans.Length() < 2 { return nil }
-	h := atoi2(strings.TrimSpace(spans.Eq(0).Text()))
-	a := atoi2(strings.TrimSpace(spans.Eq(1).Text()))
-	if h == 0 && a == 0 { return nil }
-	return &gameScore{HomeScore: &h, AwayScore: &a}
-}
-
-func atoi2(s string) int {
-	s = strings.TrimSpace(s)
-	if s == "" || s == "-" { return 0 }
-	v := 0; for _, c := range s { v = v*10 + int(c-'0') }; return v
 }
 
 func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {
@@ -167,7 +112,6 @@ func (f *FPBAPI) GetTeam(id string) (*scraper.TeamDetail, error) {
 	body, err := f.http.Get(fmt.Sprintf("%s/equipa/%s/", fpbBase, url.PathEscape(id)))
 	if err != nil { return nil, err }
 	td := scraper.ScrapeTeamDetail(string(body))
-	if td == nil { return nil, fmt.Errorf("parse team %s failed", id) }
 	raw2, _ := json.Marshal(td)
 	f.cache.Set(key, raw2, cache.TTLHistorical)
 	return td, nil
@@ -193,9 +137,9 @@ func (f *FPBAPI) GetStandings(compID string) ([]models.Standing, error) {
 		var s []models.Standing
 		if err := json.Unmarshal(raw, &s); err == nil { return s, nil }
 	}
-	html, err := f.http.Get(fmt.Sprintf("%s/classificacao/%s", fpbBase, compID))
+	html, _ := f.http.Get(fmt.Sprintf("%s/classificacao/%s", fpbBase, compID))
 	faseID := "30969"
-	if err == nil {
+	if html != nil {
 		for _, fs := range scraper.ExtractFaseIDs(string(html)) { faseID = fs.ID; break }
 	}
 	body, err := f.http.Get(fmt.Sprintf("%s/wp-admin/admin-ajax.php?action=get_more_fase_regular&competicao%%5B%%5D=%s&fase=%s", fpbBase, compID, faseID))
