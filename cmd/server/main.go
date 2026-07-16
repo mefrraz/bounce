@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"runtime"
 	"os/signal"
 	"path/filepath"
@@ -66,11 +67,13 @@ func main() {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	}
 
-	r := chi.NewRouter()
-	r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
-	r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{corsOrigin}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
+r := chi.NewRouter()
+r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
+r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{corsOrigin}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
 
 rl := newRateLimiter(100, time.Minute)
+r.Use(metricsMiddleware)
+r.Use(apiKeyMiddleware)
 r.Use(rl.middleware)
 
 r.Get("/test", apihandler.TestPage)
@@ -103,15 +106,21 @@ r.Get("/docs/", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w,
 }
 
 var startTime = time.Now()
+var apiKey = ""
 
-func init() { startTime = time.Now() }
+func init() { startTime = time.Now(); apiKey = os.Getenv("BOUNCE_API_KEY") }
 
 func metricsHandler(w http.ResponseWriter, _ *http.Request) {
 	uptime := int(time.Since(startTime).Seconds())
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprintf(w, "# HELP bounce_uptime_seconds Uptime in seconds\n# TYPE bounce_uptime_seconds gauge\nbounce_uptime_seconds %d\n", uptime)
 	var m runtime.MemStats
-runtime.ReadMemStats(&m)
+	runtime.ReadMemStats(&m)
 	fmt.Fprintf(w, "# HELP bounce_goroutines Number of goroutines\n# TYPE bounce_goroutines gauge\nbounce_goroutines %d\n", runtime.NumGoroutine())
 	fmt.Fprintf(w, "# HELP bounce_memory_bytes Allocated memory\n# TYPE bounce_memory_bytes gauge\nbounce_memory_bytes %d\n", m.Alloc)
+	fmt.Fprintf(w, "# HELP bounce_requests_total Total HTTP requests\n# TYPE bounce_requests_total counter\nbounce_requests_total %d\n", atomic.LoadUint64(&requestsTotal))
+	fmt.Fprintf(w, "# HELP bounce_cache_hits_total Cache hits\n# TYPE bounce_cache_hits_total counter\nbounce_cache_hits_total %d\n", atomic.LoadUint64(&cacheHitsTotal))
+	fmt.Fprintf(w, "# HELP bounce_cache_misses_total Cache misses\n# TYPE bounce_cache_misses_total counter\nbounce_cache_misses_total %d\n", atomic.LoadUint64(&cacheMissesTotal))
+	fmt.Fprintf(w, "# HELP bounce_fpb_requests_total Requests to FPB\n# TYPE bounce_fpb_requests_total counter\nbounce_fpb_requests_total %d\n", atomic.LoadUint64(&fpbRequestsTotal))
+	fmt.Fprintf(w, "# HELP bounce_rate_limited_total Rate-limited requests\n# TYPE bounce_rate_limited_total counter\nbounce_rate_limited_total %d\n", atomic.LoadUint64(&rateLimitedTotal))
 }
