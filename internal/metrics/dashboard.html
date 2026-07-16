@@ -7,8 +7,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--accent:#ff6b35;--accent-dim:#e85a2a;--accent-light:#ff8c5f;--data:#4fc3f7;--bg:#09090b;--card:#18181b;--card-hover:#27272a;--border:rgba(255,255,255,0.1);--border-strong:rgba(255,255,255,0.15);--text:#f4f4f5;--muted:#71717a;--muted2:#52525b;--green:#22c55e;--red:#ef4444}
-[data-theme="light"]{--accent:#e85a2a;--accent-dim:#cc4f1f;--accent-light:#ff7f55;--data:#0284c7;--bg:#fafafa;--card:#fff;--card-hover:#f4f4f5;--border:rgba(0,0,0,0.08);--border-strong:rgba(0,0,0,0.14);--text:#18181b;--muted:#71717a;--muted2:#a1a1aa;--green:#16a34a;--red:#dc2626}
+:root{--accent:#ff6b35;--accent-dim:#e85a2a;--accent-light:#ff8c5f;--data:#4fc3f7;--bg:#09090b;--card:#18181b;--card-hover:#27272a;--border:rgba(255,255,255,0.1);--border-strong:rgba(255,255,255,0.15);--text:#f4f4f5;--muted:#71717a;--muted2:#52525b;--green:#22c55e;--red:#ef4444;--uptime:#a78bfa;--goroutines:#f59e0b}
+[data-theme="light"]{--accent:#e85a2a;--accent-dim:#cc4f1f;--accent-light:#ff7f55;--data:#0284c7;--bg:#fafafa;--card:#fff;--card-hover:#f4f4f5;--border:rgba(0,0,0,0.08);--border-strong:rgba(0,0,0,0.14);--text:#18181b;--muted:#71717a;--muted2:#a1a1aa;--green:#16a34a;--red:#dc2626;--uptime:#7c3aed;--goroutines:#d97706}
 *{box-sizing:border-box;margin:0;padding:0}
 html{scrollbar-gutter:stable;background:var(--bg)}html,body{background:var(--bg);color:var(--text);font-family:'Outfit','Segoe UI',sans-serif;min-height:100vh}
 body{background-image:radial-gradient(circle at 15% 0%,rgba(255,107,53,0.08) 0%,transparent 45%),radial-gradient(circle at 85% 15%,rgba(79,195,247,0.04) 0%,transparent 40%);background-attachment:fixed}
@@ -67,6 +67,12 @@ main{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
 .card--fpb .glow{background:var(--green)}
 .card--limited .metric-icon{background:rgba(239,68,68,0.14);color:var(--red)}
 .card--limited .glow{background:var(--red)}
+.card--uptime .metric-icon{background:rgba(167,139,250,0.14);color:var(--uptime)}
+.card--uptime .glow{background:var(--uptime)}
+.card--goroutines .metric-icon{background:rgba(245,158,11,0.14);color:var(--goroutines)}
+.card--goroutines .glow{background:var(--goroutines)}
+
+.metrics-grid-secondary{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;max-width:590px;margin:0 auto 26px}
 
 .charts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .chart-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;animation:fadeIn .45s ease-out}
@@ -149,6 +155,21 @@ Bounce <span class="dim">/ dashboard</span>
 </div>
 </section>
 
+<section class="metrics-grid-secondary">
+<div class="metric-card card--uptime">
+<div class="glow"></div>
+<div class="metric-label"><span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>Uptime</div>
+<div class="metric-value" id="mUptime">–</div>
+<div class="metric-sub" id="mUptimeSub">desde o arranque</div>
+</div>
+<div class="metric-card card--goroutines">
+<div class="glow"></div>
+<div class="metric-label"><span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="6" cy="6" r="1"/><circle cx="18" cy="6" r="1"/><circle cx="6" cy="18" r="1"/><circle cx="18" cy="18" r="1"/><line x1="12" y1="12" x2="6" y2="6"/><line x1="12" y1="12" x2="18" y2="6"/><line x1="12" y1="12" x2="6" y2="18"/><line x1="12" y1="12" x2="18" y2="18"/></svg></span>Goroutines</div>
+<div class="metric-value" id="mGoroutines">–</div>
+<div class="metric-sub" id="mGoroutinesSub">runtime Go</div>
+</div>
+</section>
+
 <section class="charts-grid">
 <div class="chart-card">
 <div class="chart-head">
@@ -186,7 +207,7 @@ function $(id){return document.getElementById(id)}
 const canvases={requests:$('chartRequests'),cache:$('chartCache'),fpb:$('chartFpb')};
 
 function fmtNumber(n){if(n===null||n===undefined||isNaN(n))return'–';return Number(n).toLocaleString('pt-PT')}
-function fmtTime(d){return d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+function fmtUptime(sec){if(!sec||sec<0)return'–';var d=Math.floor(sec/86400),h=Math.floor((sec%86400)/3600),m=Math.floor((sec%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m '+Math.floor(sec%60)+'s'}
 
 function setLive(ok){
 const p=$('livePill');
@@ -360,6 +381,8 @@ $('mRequests').textContent=fmtNumber(r);
 $('mCache').textContent=rate+'%';
 $('mFpb').textContent=fmtNumber(fp);
 $('mLimited').textContent=fmtNumber(rl);
+$('mUptime').textContent=fmtUptime(d.uptime_seconds||0);
+$('mGoroutines').textContent=fmtNumber(d.goroutines||0);
 $('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())
 }catch(ex){}};
 ws.onclose=function(){if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
