@@ -14,7 +14,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	httpSwagger "github.com/swaggo/http-swagger"
 
+	_ "github.com/mefrraz/bounce/docs"
 	apihandler "github.com/mefrraz/bounce/internal/api"
 	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/fpbapi"
@@ -80,6 +82,7 @@ func main() {
 	r.Get("/test", apihandler.TestPage)
 	r.Get("/app", apihandler.AppPage)
 	r.Get("/metrics", metricsHandler)
+r.Get("/docs/*", httpSwagger.WrapHandler)
 
 	handler := apihandler.NewHandler(fpb)
 	handler.RegisterRoutes(r)

@@ -1,0 +1,10 @@
+basePath: /
+host: localhost:3001
+info:
+  contact: {}
+  description: Smart Sports Data Proxy for Portuguese basketball. Aggregates data
+    from FPB and TugaBasket.
+  title: Bounce API
+  version: 4.1.0
+paths: {}
+swagger: "2.0"

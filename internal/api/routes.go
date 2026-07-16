@@ -1,5 +1,11 @@
 package api
 
+// @title Bounce API
+// @version 4.1.0
+// @description Smart Sports Data Proxy for Portuguese basketball. Aggregates data from FPB and TugaBasket.
+// @host localhost:3001
+// @BasePath /
+
 import (
 	"encoding/json"
 	"net/http"

@@ -1,0 +1,12 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Smart Sports Data Proxy for Portuguese basketball. Aggregates data from FPB and TugaBasket.",
+        "title": "Bounce API",
+        "contact": {},
+        "version": "4.1.0"
+    },
+    "host": "localhost:3001",
+    "basePath": "/",
+    "paths": {}
+}
