@@ -92,9 +92,16 @@ func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {
 	body, err := f.http.Post(fpbBase+"/wp-admin/admin-ajax.php", "action=get_competicoes&epoca=2025/2026&escalao=Senior&genero=masculino&radio=true")
 	var comps []models.Competition
 	if err == nil {
-		re := regexp.MustCompile(`data-id="(\d+)"[^>]*>\s*(?:<[^>]+>)*\s*([^<]+)\s*<`)
+		re := regexp.MustCompile(`data-id="(\d+)"[^>]*>\s*<span[^>]*>([^<]+)</span>`)
 		for _, m := range re.FindAllStringSubmatch(string(body), -1) {
 			comps = append(comps, models.Competition{ID: m[1], Name: strings.TrimSpace(m[2])})
+		}
+		// Fallback: try without span
+		if len(comps) == 0 {
+			re2 := regexp.MustCompile(`data-id="(\d+)"[^>]*>\s*([^<]+)`)
+			for _, m := range re2.FindAllStringSubmatch(string(body), -1) {
+				comps = append(comps, models.Competition{ID: m[1], Name: strings.TrimSpace(m[2])})
+			}
 		}
 	}
 	if len(comps) == 0 {

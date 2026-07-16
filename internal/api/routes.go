@@ -291,7 +291,7 @@ func (h *Handler) GetToday(w http.ResponseWriter, r *http.Request) {
 			if cache.IsToday(g.Date) { all = append(all, g) }
 		}
 	}
-	writeJSON(w, http.StatusOK, all)
+	if all == nil { all = []interface{}{} }; writeJSON(w, http.StatusOK, all)
 }
 
 // GetLive returns games currently in progress.
@@ -303,7 +303,7 @@ func (h *Handler) GetLive(w http.ResponseWriter, r *http.Request) {
 			if g.Status == "AO VIVO" || g.Status == "EM CURSO" { live = append(live, g) }
 		}
 	}
-	writeJSON(w, http.StatusOK, live)
+	if live == nil { live = []interface{}{} }; writeJSON(w, http.StatusOK, live)
 }
 
 // GetGamesPaginated handles ?club=ID with pagination.

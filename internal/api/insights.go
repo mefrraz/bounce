@@ -14,7 +14,17 @@ type InsightsHandler struct {
 }
 
 func NewInsightsHandler() *InsightsHandler {
-	return &InsightsHandler{ratings: make(map[string]*elo.Rating)}
+	h := &InsightsHandler{ratings: make(map[string]*elo.Rating)}
+	// Initialize with known top clubs
+	for _, r := range []struct{ id, name string; rating float64 }{
+		{"127", "SL Benfica", 1750},
+		{"120", "FC Porto", 1680},
+		{"169", "Sporting CP", 1650},
+		{"119", "FC Gaia", 1500},
+	} {
+		h.ratings[r.id] = &elo.Rating{TeamID: r.id, Team: r.name, Rating: r.rating}
+	}
+	return h
 }
 
 func (h *InsightsHandler) RegisterRoutes(r chi.Router) {
