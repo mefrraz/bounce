@@ -275,6 +275,34 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 		}
 	})
 
+	// Player stats: table.ficha-tabela tbody tr (home and away)
+	parsePlayerTable := func(sel *goquery.Selection) []models.PlayerStat {
+		var stats []models.PlayerStat
+		sel.Find("tbody tr").Each(func(_ int, row *goquery.Selection) {
+			cells := row.Find("td")
+			if cells.Length() < 3 { return }
+			name := strings.TrimSpace(cells.Eq(1).Text())
+			if name == "" || name == "Total" { return }
+			s := models.PlayerStat{
+				Name: name, Number: atoi(strings.TrimSpace(cells.Eq(0).Text())),
+				Points: atoi(strings.TrimSpace(cells.Eq(2).Text())),
+			}
+			if cells.Length() > 3 { s.Rebounds = atoi(strings.TrimSpace(cells.Eq(3).Text())) }
+			if cells.Length() > 4 { s.Assists = atoi(strings.TrimSpace(cells.Eq(4).Text())) }
+			if cells.Length() > 5 { s.Blocks = atoi(strings.TrimSpace(cells.Eq(5).Text())) }
+			if cells.Length() > 6 { s.Steals = atoi(strings.TrimSpace(cells.Eq(6).Text())) }
+			if cells.Length() > 7 { s.Turnovers = atoi(strings.TrimSpace(cells.Eq(7).Text())) }
+			if cells.Length() > 8 { s.Fouls = atoi(strings.TrimSpace(cells.Eq(8).Text())) }
+			stats = append(stats, s)
+		})
+		return stats
+	}
+	doc.Find(".game-detail .table-responsive, table.ficha-tabela").Each(func(i int, table *goquery.Selection) {
+		stats := parsePlayerTable(table)
+		if i == 0 && len(stats) > 0 { detail.HomeStats = stats }
+		if i == 1 && len(stats) > 0 { detail.AwayStats = stats }
+	})
+
 	return detail, nil
 }
 
