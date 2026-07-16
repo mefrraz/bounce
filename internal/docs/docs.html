@@ -79,19 +79,19 @@ pre{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px
 </nav>
 
 <main>
-<div class="page-head"><h1>API Documentation</h1><p>Proxy de dados desportivos para basquetebol portugu00eas. Dados da FPB e TugaBasket.</p></div>
+<div class="page-head"><h1>API Documentation</h1><p>Proxy de dados desportivos para basquetebol português. Dados da FPB e TugaBasket.</p></div>
 
 <div class="toc">
 <a href="#overview">Overview</a>
 <a href="#auth">Auth</a>
 <a href="#games">Jogos</a>
-<a href="#standings">Classifica00e700f5es</a>
+<a href="#standings">Classificações</a>
 <a href="#athletes">Atletas</a>
 <a href="#clubs">Clubes</a>
 <a href="#elo">ELO</a>
 <a href="#tugabasket">TugaBasket</a>
 <a href="#ws">WebSocket</a>
-<a href="#metrics-api">M00e9tricas</a>
+<a href="#metrics-api">Métricas</a>
 <a href="#selfhost">Self-Hosting</a>
 </div>
 
@@ -121,7 +121,7 @@ pre{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px
 
 <div class="endpoint">
 <div class="endpoint-head"><span class="method">GET</span><span class="path">/api/competitions</span></div>
-<div class="desc">Lista todas as competicoes disponiveis na FPB.</div>
+<div class="desc">Lista todas as competições disponiveis na FPB.</div>
 <pre>curl "http://localhost:3001/api/competitions"</pre>
 </div>
 
@@ -133,14 +133,14 @@ pre{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px
 <tr><td><code>club</code></td><td>int</td><td>ID do clube</td><td>119 (Benfica)</td></tr>
 <tr><td><code>season</code></td><td>string</td><td>Epoca</td><td>2025/2026</td></tr>
 </table>
-<div class="endpoint"><div class="endpoint-head"><span class="method">GET</span><span class="path">/api/games/today</span></div><div class="desc">Jogos agendados para hoje em todas as competicoes.</div><pre>curl "http://localhost:3001/api/games/today"</pre></div>
+<div class="endpoint"><div class="endpoint-head"><span class="method">GET</span><span class="path">/api/games/today</span></div><div class="desc">Jogos agendados para hoje em todas as competições.</div><pre>curl "http://localhost:3001/api/games/today"</pre></div>
 <div class="endpoint"><div class="endpoint-head"><span class="method">GET</span><span class="path">/api/games/live</span></div><div class="desc">Jogos a decorrer neste momento.</div><pre>curl "http://localhost:3001/api/games/live"</pre></div>
 <pre>curl "http://localhost:3001/api/games?club=119&season=2025/2026"</pre>
 </div>
 
 <div class="endpoint">
 <div class="endpoint-head"><span class="method">GET</span><span class="path">/api/games/today</span></div>
-<div class="desc">Jogos agendados para hoje em todas as competicoes.</div>
+<div class="desc">Jogos agendados para hoje em todas as competições.</div>
 <pre>curl "http://localhost:3001/api/games/today"</pre>
 </div>
 
@@ -163,7 +163,7 @@ pre{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px
 </div>
 
 <div class="accordion" id="standings">
-<div class="accordion-header">Classifica00e700f5es (Standings)</div>
+<div class="accordion-header">Classificações (Standings)</div>
 <div class="accordion-body">
 <div class="endpoint">
 <div class="endpoint-head"><span class="method">GET</span><span class="path">/api/standings/{id}</span></div>
@@ -213,7 +213,7 @@ pre{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px
 </div>
 
 <div class="accordion" id="elo">
-<div class="accordion-header">ELO & Previs00f5es</div>
+<div class="accordion-header">ELO & Previsões</div>
 <div class="accordion-body">
 <div class="endpoint">
 <div class="endpoint-head"><span class="method">GET</span><span class="path">/api/elo</span></div>
@@ -288,11 +288,11 @@ pre{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px
 </div>
 
 <div class="accordion" id="metrics-api">
-<div class="accordion-header">M00e9tricas</div>
+<div class="accordion-header">Métricas</div>
 <div class="accordion-body">
 <div class="endpoint">
 <div class="endpoint-head"><span class="method">GET</span><span class="path">/metrics</span></div>
-<div class="desc">M00e9tricas em formato Prometheus (texto).</div>
+<div class="desc">Métricas em formato Prometheus (texto).</div>
 <pre>curl "http://localhost:3001/metrics"</pre>
 </div>
 <div class="endpoint">
