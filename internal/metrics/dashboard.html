@@ -230,6 +230,7 @@ function $(id){return document.getElementById(id)}
 const canvases={requests:$('chartRequests'),cache:$('chartCache'),fpb:$('chartFpb'),total:$('chartTotal')};
 
 function fmtNumber(n){if(n===null||n===undefined||isNaN(n))return'–';return Number(n).toLocaleString('pt-PT')}
+function fmtTime(d){return d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
 function fmtUptime(sec){if(!sec||sec<0)return'–';var d=Math.floor(sec/86400),h=Math.floor((sec%86400)/3600),m=Math.floor((sec%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m '+Math.floor(sec%60)+'s'}
 
 function setLive(ok){
