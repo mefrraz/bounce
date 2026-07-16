@@ -85,7 +85,9 @@ func (h *Handler) GetGames(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if competition != "" {
-		writeJSON(w, http.StatusOK, []interface{}{})
+		writeJSON(w, http.StatusOK, map[string]string{
+			"message": "Competition filter not yet implemented. Use ?club=ID&season=YYYY/YYYY instead.",
+		})
 		return
 	}
 

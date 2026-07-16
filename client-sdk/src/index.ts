@@ -34,10 +34,10 @@ export class BounceClient {
   constructor(baseUrl = DEFAULT_URL) { this.baseUrl = baseUrl.replace(/\/$/, '') }
 
   async health() { const r = await fetch(`${this.baseUrl}/health`); return r.json() }
-  async games(p: { date?: string; competition?: string } = {}) {
+  async games(p: { club?: number; season?: string } = {}) {
     const qs = new URLSearchParams()
-    if (p.date) qs.set('date', p.date)
-    if (p.competition) qs.set('competition', p.competition)
+    if (p.club) qs.set('club', String(p.club))
+    if (p.season) qs.set('season', p.season)
     const r = await fetch(`${this.baseUrl}/api/games?${qs}`)
     if (!r.ok) throw new Error(`Bounce error: ${r.status}`)
     return r.json() as Promise<Game[]>

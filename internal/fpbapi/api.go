@@ -31,7 +31,8 @@ func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 	}
 	body, err := f.http.Get(fmt.Sprintf("%s/ficha-de-jogo?internalID=%s", fpbBase, url.PathEscape(internalID)))
 	if err != nil { return nil, err }
-	detail, _ := scraper.ScrapeGameDetail(string(body))
+	detail, err := scraper.ScrapeGameDetail(string(body))
+	if err != nil { return nil, fmt.Errorf("parse game %s: %w", internalID, err) }
 	detail.ID = internalID
 
 	// Chain invalidation: status change → invalidate club calendars
