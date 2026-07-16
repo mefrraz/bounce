@@ -72,7 +72,7 @@ func (h *Handler) GetGames(w http.ResponseWriter, r *http.Request) {
 	if club != "" {
 		season := q.Get("season")
 		if season == "" {
-			season = "2025/2026"
+			season = cache.CurrentSeason()
 		}
 		category := q.Get("category")
 		if category == "" {
@@ -93,7 +93,7 @@ func (h *Handler) GetGames(w http.ResponseWriter, r *http.Request) {
 
 	if competition != "" {
 		season := q.Get("season")
-		if season == "" { season = "2025/2026" }
+		if season == "" { season = cache.CurrentSeason() }
 		games, err := h.FPB.GetGamesByCompetition(competition, season)
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
@@ -286,7 +286,7 @@ func (h *Handler) GetToday(w http.ResponseWriter, r *http.Request) {
 		_ = time.Now()
 	var all []interface{}
 	for _, c := range []string{"10902","10903","10904","10906","10907"} {
-		games, _ := h.FPB.GetGamesByCompetition(c, "2025/2026")
+		games, _ := h.FPB.GetGamesByCompetition(c, cache.CurrentSeason())
 		for _, g := range games {
 			if cache.IsToday(g.Date) { all = append(all, g) }
 		}
@@ -298,7 +298,7 @@ func (h *Handler) GetToday(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetLive(w http.ResponseWriter, r *http.Request) {
 	var live []interface{}
 	for _, c := range []string{"10902","10903","10904","10906","10907"} {
-		games, _ := h.FPB.GetGamesByCompetition(c, "2025/2026")
+		games, _ := h.FPB.GetGamesByCompetition(c, cache.CurrentSeason())
 		for _, g := range games {
 			if g.Status == "AO VIVO" || g.Status == "EM CURSO" { live = append(live, g) }
 		}
@@ -313,7 +313,7 @@ func (h *Handler) GetGamesPaginated(w http.ResponseWriter, r *http.Request) {
 	offset := atoiQ(q, "offset", 0)
 	club := q.Get("club")
 	season := q.Get("season")
-	if season == "" { season = "2025/2026" }
+	if season == "" { season = cache.CurrentSeason() }
 
 	games, err := h.FPB.GetGamesByClub(club, season, "Senior", "masculino")
 	if err != nil { jsonError(w, err.Error(), "FETCH_ERROR", 502); return }

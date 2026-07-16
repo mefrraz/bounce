@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -74,4 +75,14 @@ func parseDate(s string) (time.Time, error) {
 		}
 	}
 	return time.Time{}, nil
+}
+
+// CurrentSeason returns the current basketball season string (YYYY/YYYY).
+// The season starts in September.
+func CurrentSeason() string {
+	now := time.Now()
+	if now.Month() >= time.September {
+		return fmt.Sprintf("%d/%d", now.Year(), now.Year()+1)
+	}
+	return fmt.Sprintf("%d/%d", now.Year()-1, now.Year())
 }

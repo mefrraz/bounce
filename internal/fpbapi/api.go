@@ -89,7 +89,7 @@ func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {
 		var c []models.Competition
 		if err := json.Unmarshal(raw, &c); err == nil { return c, nil }
 	}
-	body, err := f.http.Post(fpbBase+"/wp-admin/admin-ajax.php", "action=get_competicoes&epoca=2025/2026&escalao=Senior&genero=masculino&radio=true")
+	body, err := f.http.Post(fpbBase+"/wp-admin/admin-ajax.php", "action=get_competicoes&epoca="+cache.CurrentSeason()+"&escalao=Senior&genero=masculino&radio=true")
 	var comps []models.Competition
 	if err == nil {
 		re := regexp.MustCompile(`data-id="(\d+)"[^>]*>\s*<span[^>]*>([^<]+)</span>`)
@@ -146,7 +146,7 @@ func (f *FPBAPI) GetClubTeams(clubID string) ([]models.Team, error) {
 		var t []models.Team
 		if err := json.Unmarshal(raw, &t); err == nil { return t, nil }
 	}
-	body, err := f.http.Get(fmt.Sprintf("%s/wp-admin/admin-ajax.php?action=get_equipas&idClube=%s&epoca=2025/2026", fpbBase, clubID))
+	body, err := f.http.Get(fmt.Sprintf("%s/wp-admin/admin-ajax.php?action=get_equipas&idClube=%s&epoca=2025/2026epoca="+cache.CurrentSeason()+"", fpbBase, clubID))
 	if err != nil { return nil, err }
 	teams := scraper.ScrapeClubTeams(string(body))
 	raw2, _ := json.Marshal(teams)

@@ -46,7 +46,7 @@ func main() {
 
 	sched := scheduler.New(
 		func(id string) (*models.Game, error) { d, e := fpb.GetGame(id); if e != nil { return nil, e }; return &d.Game, nil },
-		func() ([]models.Game, error) { comps, _ := fpb.GetCompetitions(); var t []models.Game; for _, c := range comps { g, _ := fpb.GetGamesByCompetition(c.ID, "2025/2026"); for _, gm := range g { if cache.IsToday(gm.Date) { t = append(t, gm) } } }; slog.Info("daily refresh", "games_today", len(t)); return t, nil },
+		func() ([]models.Game, error) { comps, _ := fpb.GetCompetitions(); var t []models.Game; for _, c := range comps { g, _ := fpb.GetGamesByCompetition(c.ID, cache.CurrentSeason()); for _, gm := range g { if cache.IsToday(gm.Date) { t = append(t, gm) } } }; slog.Info("daily refresh", "games_today", len(t)); return t, nil },
 		func(g models.Game) {
 			et := "score_update"
 			if g.Status == "FINALIZADO" { et = "game_finished" }
@@ -58,9 +58,17 @@ func main() {
 		func(id string) { sched.UnscheduleGame(id) },
 	)
 
-r := chi.NewRouter()
-r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
-r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{"*"}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
+	corsOrigin := os.Getenv("BOUNCE_CORS_ORIGIN")
+	if corsOrigin == "" { corsOrigin = "*" }
+	logLevel := os.Getenv("BOUNCE_LOG_LEVEL")
+	if logLevel == "" { logLevel = "warn" }
+	if logLevel == "debug" {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	}
+
+	r := chi.NewRouter()
+	r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
+	r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{corsOrigin}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
 
 rl := newRateLimiter(100, time.Minute)
 r.Use(rl.middleware)
@@ -77,8 +85,7 @@ r.Get("/docs/", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w,
 	apihandler.NewInsightsHandler().RegisterRoutes(r)
 
 	sched.Start()
-	defer sched.Stop()
-
+	go func() { fpb.GetCompetitions(); fpb.GetStandings("10902"); slog.Info("pre-warm complete") }()
 	srv := &http.Server{Addr: ":" + port, Handler: r}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
