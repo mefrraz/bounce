@@ -413,12 +413,13 @@ var res=await fetch('/api/metrics/history/simple?minutes='+(currentMinutes>=1008
 if(!res.ok)throw new Error('HTTP '+res.status);
 var payload=await res.json(),snapshots=normalizeSnapshots(payload);
 lastSnapshots=snapshots;
-renderCards(snapshots);renderCharts(snapshots);
-$('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())
+try{renderCards(snapshots);renderCharts(snapshots)}catch(e){console.error('render error:',e)}
 }catch(err){
-setLive(false);$('lastUpdate').textContent='Falha ao atualizar ('+fmtTime(new Date())+')';
-console.error('Bounce dashboard fetch error:',err)
-}finally{isFetching=false}
+setLive(false);console.error('Bounce dashboard fetch error:',err)
+}finally{
+$('lastUpdate').textContent='Última atualização: '+fmtTime(new Date());
+isFetching=false
+}
 }
 
 function updateFooter(){}
@@ -506,7 +507,9 @@ canvas.addEventListener('mouseleave',function(){canvas._tooltip.style.display='n
 });
 
 window.addEventListener('resize',function(){renderCharts(lastSnapshots)});
-fetchMetrics();scheduleRefresh()
+fetchMetrics();scheduleRefresh();
+// Fallback: if still loading after 5s, show attempting
+setTimeout(function(){var lu=$('lastUpdate');if(lu&&lu.textContent==='A carregar\u2026')lu.textContent='A tentar\u2026'},5000)
 })();
 </script>
 </body>
