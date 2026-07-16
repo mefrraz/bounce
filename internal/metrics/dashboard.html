@@ -337,7 +337,7 @@ $('mCache').textContent=fmtNumber(Math.round(computeCacheRate(latest)))+'%';
 $('mFpb').textContent=fmtNumber(latest.fpbRequests);
 $('mLimited').textContent=fmtNumber(latest.rateLimited);
 
-function subText(el,curr,prevVal,unit){if(snapshots.length<2){el.textContent='primeiro snapshot';return}var vsLabel='vs ha '+(currentMinutes>=1440?Math.round(currentMinutes/1440)+'d':currentMinutes>=60?Math.round(currentMinutes/60)+'h':currentMinutes+'m');var diff=curr-prevVal;if(diff===0){el.innerHTML='— sem alteração '+vsLabel;return}var cls=diff>0?'trend-up':'trend-down',arrow=diff>0?'▲':'▼';el.innerHTML='<span class="'+cls+'">'+arrow+' '+Math.abs(diff).toLocaleString('pt-PT')+(unit||'')+'</span> '+vsLabel}
+function subText(el,curr,prevVal,unit){if(snapshots.length<2){el.textContent='primeiro snapshot';return}var diff=curr-prevVal;if(diff===0){el.innerHTML='— sem alteração';return}var cls=diff>0?'trend-up':'trend-down',arrow=diff>0?'▲':'▼';el.innerHTML='<span class="'+cls+'">'+arrow+' '+Math.abs(diff).toLocaleString('pt-PT')+(unit||'')+'</span>'}
 subText($('mRequestsSub'),latest.requests,first.requests);
 if(first)subText($('mCacheSub'),Math.round(computeCacheRate(latest)),Math.round(computeCacheRate(first)),'%');else $('mCacheSub').textContent='primeiro snapshot';
 subText($('mFpbSub'),latest.fpbRequests,first.fpbRequests);
@@ -446,7 +446,7 @@ $('rangeBar').addEventListener('click',function(e){
 var btn=e.target.closest('.range-btn');if(!btn)return;
 var rs=this.querySelectorAll('.range-btn');rs.forEach(function(b){b.classList.remove('active')});
 btn.classList.add('active');currentMinutes=Number(btn.dataset.minutes);
-updateFooter();fetchMetrics();if(refreshMode==='live')scheduleRefresh()
+console.log('range changed to',currentMinutes);updateFooter();fetchMetrics();if(refreshMode==='live')scheduleRefresh()
 });
 
 $('refreshBar').addEventListener('click',function(e){
