@@ -82,7 +82,10 @@ func main() {
 	r.Get("/test", apihandler.TestPage)
 	r.Get("/app", apihandler.AppPage)
 	r.Get("/metrics", metricsHandler)
-r.Get("/docs/*", httpSwagger.WrapHandler)
+	r.Get("/docs", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/docs/index.html", http.StatusMovedPermanently)
+	})
+	r.Get("/docs/*", httpSwagger.WrapHandler)
 
 	handler := apihandler.NewHandler(fpb)
 	handler.RegisterRoutes(r)
