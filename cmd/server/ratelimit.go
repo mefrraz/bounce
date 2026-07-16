@@ -46,6 +46,7 @@ func (rl *rateLimiter) cleanup() {
 
 func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		metrics.IncRequests()
 		if r.Header.Get("X-Dribly-Key") == os.Getenv("DRIBLY_KEY") && os.Getenv("DRIBLY_KEY") != "" {
 			next.ServeHTTP(w, r); return
 		}

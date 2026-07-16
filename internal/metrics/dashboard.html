@@ -76,8 +76,6 @@ main{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
 .chart-current{font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
 canvas.chart-canvas{width:100%;height:150px;display:block}
 
-footer{text-align:center;margin-top:40px;color:var(--muted2);font-size:11.5px}
-
 @media(max-width:880px){.metrics-grid{grid-template-columns:repeat(2,1fr)}.charts-grid{grid-template-columns:1fr}}
 @media(max-width:620px){nav.topbar{padding:0 14px;height:52px}.nav-links a{padding:6px 10px;font-size:12px}.brand span.dim{display:none}main{padding:20px 14px 50px}.metrics-grid{grid-template-columns:repeat(2,1fr);gap:10px}.metric-value{font-size:24px}.range-bar{width:100%;justify-content:space-between}.range-btn{flex:1;padding:7px 6px}.toolbar{flex-direction:column;align-items:stretch}}
 @media(max-width:420px){.metrics-grid{grid-template-columns:1fr}}
@@ -174,7 +172,6 @@ Bounce <span class="dim">/ dashboard</span>
 </div>
 </section>
 
-<footer>Bounce API · auto-refresh <span id="footerRefresh">WebSocket</span> · <span id="footerRange">últimos 5 minutos</span></footer>
 </main>
 
 <script>
@@ -318,10 +315,7 @@ console.error('Bounce dashboard fetch error:',err)
 }finally{isFetching=false}
 }
 
-function updateFooter(){
-$('footerRange').textContent=RANGE_LABELS[currentMinutes]||'últimos '+currentMinutes+' min';
-$('footerRefresh').textContent=REFRESH_LABELS[refreshMode]||''
-}
+function updateFooter(){}
 
 function scheduleRefresh(){
 if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null}
@@ -356,7 +350,7 @@ function connectWS(){
 try{
 ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/dashboard');
 ws.onopen=function(){setLive(true)};
-ws.onmessage=function(e){try{var d=JSON.parse(e.data);$('mRequests').textContent=fmtNumber(d.requests||0);$('mFpb').textContent=fmtNumber(d.fpb_requests||0);$('mLimited').textContent=fmtNumber(d.rate_limited||0)}catch(ex){}};
+ws.onmessage=function(e){try{var d=JSON.parse(e.data);$('mRequests').textContent=fmtNumber(d.requests||0);$('mFpb').textContent=fmtNumber(d.fpb_requests||0);$('mLimited').textContent=fmtNumber(d.rate_limited||0);$('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())}catch(ex){}};
 ws.onclose=function(){if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
 }catch(ex){}
 }
