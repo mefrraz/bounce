@@ -155,21 +155,6 @@ Bounce <span class="dim">/ dashboard</span>
 </div>
 </section>
 
-<section class="metrics-grid-secondary">
-<div class="metric-card card--uptime">
-<div class="glow"></div>
-<div class="metric-label"><span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>Uptime</div>
-<div class="metric-value" id="mUptime">–</div>
-<div class="metric-sub" id="mUptimeSub">desde o arranque</div>
-</div>
-<div class="metric-card card--goroutines">
-<div class="glow"></div>
-<div class="metric-label"><span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="6" cy="6" r="1"/><circle cx="18" cy="6" r="1"/><circle cx="6" cy="18" r="1"/><circle cx="18" cy="18" r="1"/><line x1="12" y1="12" x2="6" y2="6"/><line x1="12" y1="12" x2="18" y2="6"/><line x1="12" y1="12" x2="6" y2="18"/><line x1="12" y1="12" x2="18" y2="18"/></svg></span>Goroutines</div>
-<div class="metric-value" id="mGoroutines">–</div>
-<div class="metric-sub" id="mGoroutinesSub">runtime Go</div>
-</div>
-</section>
-
 <section class="charts-grid">
 <div class="chart-card">
 <div class="chart-head">
@@ -191,6 +176,33 @@ Bounce <span class="dim">/ dashboard</span>
 <div class="chart-current" id="chartFpbCurrent">–</div>
 </div>
 <canvas class="chart-canvas" id="chartFpb"></canvas>
+</div>
+</section>
+
+<section class="metrics-grid" style="margin-top:20px">
+<div class="metric-card card--uptime">
+<div class="glow"></div>
+<div class="metric-label"><span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>Uptime</div>
+<div class="metric-value" id="mUptime">–</div>
+<div class="metric-sub" id="mUptimeSub">desde o arranque</div>
+</div>
+<div class="metric-card card--goroutines">
+<div class="glow"></div>
+<div class="metric-label"><span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="6" cy="6" r="1"/><circle cx="18" cy="6" r="1"/><circle cx="6" cy="18" r="1"/><circle cx="18" cy="18" r="1"/><line x1="12" y1="12" x2="6" y2="6"/><line x1="12" y1="12" x2="18" y2="6"/><line x1="12" y1="12" x2="6" y2="18"/><line x1="12" y1="12" x2="18" y2="18"/></svg></span>Goroutines</div>
+<div class="metric-value" id="mGoroutines">–</div>
+<div class="metric-sub" id="mGoroutinesSub">runtime Go</div>
+</div>
+<div class="metric-card card--cache">
+<div class="glow"></div>
+<div class="metric-label"><span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>Cache Misses</div>
+<div class="metric-value" id="mCacheMisses">–</div>
+<div class="metric-sub" id="mCacheMissesSub">falhas de cache</div>
+</div>
+<div class="metric-card card--requests">
+<div class="glow"></div>
+<div class="metric-label"><span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>Reqs / sec</div>
+<div class="metric-value" id="mReqsSec">–</div>
+<div class="metric-sub" id="mReqsSecSub">débito actual</div>
 </div>
 </section>
 
@@ -374,6 +386,7 @@ function connectWS(){
 try{
 ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/dashboard');
 ws.onopen=function(){setLive(true)};
+let lastWs={requests:0,cacheHits:0,cacheMisses:0,fpb:0,limited:0};
 ws.onmessage=function(e){try{var d=JSON.parse(e.data);
 var r=d.requests||0,ch=d.cache_hits||0,cm=d.cache_misses||0,fp=d.fpb_requests||0,rl=d.rate_limited||0;
 var total=ch+cm,rate=total>0?Math.round(ch/total*100):0;
@@ -381,8 +394,11 @@ $('mRequests').textContent=fmtNumber(r);
 $('mCache').textContent=rate+'%';
 $('mFpb').textContent=fmtNumber(fp);
 $('mLimited').textContent=fmtNumber(rl);
+$('mCacheMisses').textContent=fmtNumber(cm);
+var reqDelta=Math.max(0,r-lastWs.requests);$('mReqsSec').textContent=fmtNumber(reqDelta);
 $('mUptime').textContent=fmtUptime(d.uptime_seconds||0);
 $('mGoroutines').textContent=fmtNumber(d.goroutines||0);
+lastWs={requests:r,cacheHits:ch,cacheMisses:cm,fpb:fp,limited:rl};
 $('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())
 }catch(ex){}};
 ws.onclose=function(){if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
