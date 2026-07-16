@@ -10,4 +10,6 @@ Substituir o placeholder "?" no canto superior esquerdo de todas as paginas
 - **Dimensoes recomendadas:** 26x26px (SVG ou PNG)
 - **Formato:** SVG com fallback PNG
 
+Falta tambemter descrição do repo nova  e licenca e contruibuições e cena de selfhosting
+
 Apos substituir, remover este TODO.md.
