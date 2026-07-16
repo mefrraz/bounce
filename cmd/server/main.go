@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"github.com/mefrraz/bounce/internal/metrics"
+	"github.com/mefrraz/bounce/internal/cache"
 	"runtime"
 	"os/signal"
 	"path/filepath"
@@ -19,7 +20,6 @@ import (
 	"github.com/go-chi/cors"
 
 	apihandler "github.com/mefrraz/bounce/internal/api"
-	"github.com/mefrraz/bounce/internal/cache"
 	"github.com/mefrraz/bounce/internal/fpbapi"
 	"github.com/mefrraz/bounce/internal/httpclient"
 	"github.com/mefrraz/bounce/internal/models"
@@ -77,7 +77,7 @@ r.Use(rl.middleware)
 r.Get("/test", apihandler.TestPage)
 r.Get("/health", apihandler.Health)
 r.Get("/metrics", metricsHandler)
-r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/swagger.json") })
+r.Get("/dashboard", metrics.DashboardHandler)
 r.Get("/docs", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
 r.Get("/docs/", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
 
@@ -113,7 +113,7 @@ func metricsHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprintf(w, "# HELP bounce_uptime_seconds Uptime in seconds\n# TYPE bounce_uptime_seconds gauge\nbounce_uptime_seconds %d\n", uptime)
 	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
+runtime.ReadMemStats(&m)
 	fmt.Fprintf(w, "# HELP bounce_goroutines Number of goroutines\n# TYPE bounce_goroutines gauge\nbounce_goroutines %d\n", runtime.NumGoroutine())
 	fmt.Fprintf(w, "# HELP bounce_memory_bytes Allocated memory\n# TYPE bounce_memory_bytes gauge\nbounce_memory_bytes %d\n", m.Alloc)
 	fmt.Fprintf(w, "# HELP bounce_requests_total Total HTTP requests\n# TYPE bounce_requests_total counter\nbounce_requests_total %d\n", metrics.RequestsTotal)
