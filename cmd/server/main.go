@@ -56,19 +56,20 @@ func main() {
 		func(id string) { sched.UnscheduleGame(id) },
 	)
 
-	r := chi.NewRouter()
-	r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP)
-	r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{"*"}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
+r := chi.NewRouter()
+r.Use(middleware.Logger, middleware.Recoverer, middleware.RealIP)
+r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{"*"}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
 
-	rl := newRateLimiter(100, time.Minute)
-	r.Use(rl.middleware)
+rl := newRateLimiter(100, time.Minute)
+r.Use(rl.middleware)
 
-	r.Get("/health", apihandler.Health)
-	r.Get("/test", apihandler.TestPage)
-	r.Get("/app", apihandler.AppPage)
-	r.Get("/metrics", metricsHandler)
-	r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/swagger.json") })
-	r.Get("/docs", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
+r.Get("/health", apihandler.Health)
+r.Get("/test", apihandler.TestPage)
+r.Get("/app", apihandler.AppPage)
+r.Get("/metrics", metricsHandler)
+r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/swagger.json") })
+r.Get("/docs", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
+r.Get("/docs/", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "docs/index.html") })
 
 	apihandler.NewHandler(fpb).RegisterRoutes(r)
 	hub.RegisterRoutes(r)
