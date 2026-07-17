@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -13,11 +12,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/signal"
+	"sync"
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -25,8 +23,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"golang.org/x/crypto/acme/autocert"
-	_ "github.com/andybalholm/brotli"
-	
+_ "github.com/andybalholm/brotli"
 
 	apihandler "github.com/mefrraz/bounce/internal/api"
 	"github.com/mefrraz/bounce/internal/cache"
@@ -57,7 +54,7 @@ func main() {
 	tuiMode := os.Getenv("BOUNCE_TUI") == "true"
 
 	store, err := cache.NewStore(filepath.Join(dataDir, "bounce.db"))
-	bouncedb = store
+bouncedb = store
 	if err != nil { log.Fatalf("cache: %v", err) }
 	defer store.Close()
 
@@ -93,35 +90,35 @@ func main() {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	}
 
-	r := chi.NewRouter()
-	router = r
-	r.Use(middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
-	quiet := os.Getenv("BOUNCE_QUIET") != ""
-	if !quiet && !tuiMode {
+r := chi.NewRouter()
+router = r
+r.Use(middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
+quiet := os.Getenv("BOUNCE_QUIET") != ""
+if !quiet && !tuiMode {
 		r.Use(prettyLogger)
 	}
 	if tuiMode {
 		r.Use(tuiLogger)
 	}
-	r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{corsOrigin}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
+r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{corsOrigin}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
 
-	rl := newRateLimiter(rateLimit, time.Minute)
-	r.Use(rl.middleware)
+rl := newRateLimiter(rateLimit, time.Minute)
+r.Use(rl.middleware)
 
-	r.Get("/test", apihandler.TestPage)
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/dashboard", 302) })
-	r.Get("/health", healthHandler)
-	r.Get("/docs", docs.Handler)
-	r.Get("/metrics", metricsHandler)
-	r.Get("/api/metrics/history", metrics.HistoryHandler)
-	r.Get("/api/metrics/history/simple", metrics.HistoryHandlerSimple)
-	r.Post("/api/metrics/reset", metricsResetHandler)
-	r.Get("/dashboard", metrics.DashboardHandler)
-	r.Post("/api/batch", batchHandler)
+r.Get("/test", apihandler.TestPage)
+r.Get("/", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/dashboard", 302) })
+r.Get("/health", healthHandler)
+r.Get("/docs", docs.Handler)
+r.Get("/metrics", metricsHandler)
+r.Get("/api/metrics/history", metrics.HistoryHandler)
+r.Get("/api/metrics/history/simple", metrics.HistoryHandlerSimple)
+r.Post("/api/metrics/reset", metricsResetHandler)
+r.Get("/dashboard", metrics.DashboardHandler)
+r.Post("/api/batch", batchHandler)
 
 	apihandler.NewHandler(fpb).RegisterRoutes(r)
 	hub.RegisterRoutes(r)
-	ws.RegisterDashboardRoute(r)
+ws.RegisterDashboardRoute(r)
 	apihandler.NewInsightsHandler().RegisterRoutes(r)
 
 	sched.Start()
@@ -139,7 +136,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	go func() {
+go func() {
 		if tlsDomain != "" {
 			if tlsCache == "" { tlsCache = filepath.Join(dataDir, "autocert") }
 			os.MkdirAll(tlsCache, 0700)
@@ -161,7 +158,7 @@ func main() {
 
 	<-ctx.Done()
 	slog.Info("shutting down...")
-	metrics.RecordSnapshot()
+	metrics.RecordSnapshot() // save final state
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	srv.Shutdown(shutdownCtx)
@@ -173,16 +170,20 @@ func prettyLogger(next http.Handler) http.Handler {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
 		fmt.Printf("\033[90m[%s]\033[0m \033[36m%s\033[0m %s → \033[%dm%d\033[0m %v\n",
-			time.Now().Format("15:04:05"), r.Method, r.URL.Path,
-			statusColor(ww.Status()), ww.Status(),
-			time.Since(start).Round(time.Microsecond))
+			time.Now().Format("15:04:05"),
+			r.Method,
+			r.URL.Path,
+			statusColor(ww.Status()),
+			ww.Status(),
+			time.Since(start).Round(time.Microsecond),
+		)
 	})
 }
 
 func statusColor(code int) int {
-	if code < 300 { return 32 }
-	if code < 400 { return 33 }
-	return 31
+	if code < 300 { return 32 } // green
+	if code < 400 { return 33 } // yellow
+	return 31 // red
 }
 
 var startTime = time.Now()
@@ -226,38 +227,47 @@ func metricsBroadcaster() {
 // ── TUI mode ──
 
 func runTUI(port string, handler http.Handler) {
+	fmt.Print("\033[2J\033[?25l")
+	defer fmt.Print("\033[?25h")
+
 	srv := &http.Server{Addr: ":" + port, Handler: handler}
 	go func() { srv.ListenAndServe() }()
 
 	go listenKeys()
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
-
-	fmt.Printf("\n=== Bounce %s  :%s  online ===\n", apihandler.Version, port)
 
 	var lastReq uint64
 	for range ticker.C {
 		reqs := metrics.RequestsTotal
-		rps := (reqs - lastReq) / 2
+		rps := reqs - lastReq
 		lastReq = reqs
 		ch := metrics.CacheHitsTotal
 		cm := metrics.CacheMissesTotal
 		total := ch + cm
 		rate := 0
 		if total > 0 { rate = int(ch * 100 / total) }
+		uptime := time.Since(startTime).Round(time.Second)
 
-		fmt.Printf("Reqs:%d Cache:%d%% FPB:%d Limit:%d Go:%d RPS:%d Up:%v\n",
-			reqs, rate, metrics.FPBRequestsTotal, metrics.RateLimitedTotal,
-			runtime.NumGoroutine(), rps, time.Since(startTime).Round(time.Second))
+		// Header
+		fmt.Printf("\033[2J\033[H\033[1;38;5;208m  Bounce %s  \033[32m● online\033[0m  \033[90m:%s\033[0m\n", apihandler.Version, port)
 
-		fmt.Println("---")
-		for i := 0; i < 10; i++ {
-			idx := (tuiReqIdx - 1 - i + 24) % 24
+		// Left side: metrics
+		fmt.Printf("\033[32m  Requests:\033[0m %d  \033[90m│\033[0m  \033[36mCache:\033[0m %d%%  \033[90m│\033[0m  \033[33mFPB Reqs:\033[0m %d  \033[90m│\033[0m  \033[31mLimited:\033[0m %d\n",
+			reqs, rate, metrics.FPBRequestsTotal, metrics.RateLimitedTotal)
+		fmt.Printf("  \033[35mGoroutines:\033[0m %d  \033[90m│\033[0m  \033[34mReqs/sec:\033[0m %d  \033[90m│\033[0m  \033[37mUptime:\033[0m %v\n",
+			runtime.NumGoroutine(), rps*2, uptime)
+
+		// Recent requests
+		for i := 0; i < 8; i++ {
+			idx := (tuiReqIdx - 1 - i + 8) % 8
 			if tuiReqLog[idx] != "" {
-				fmt.Println(tuiReqLog[idx])
+				fmt.Printf("  %s\n", tuiReqLog[idx])
 			}
 		}
-		fmt.Println("--- r=reset Ctrl+C=stop ---")
+
+		// Footer
+		fmt.Printf("\n  \033[90mPress Ctrl+C to stop  R=reset\033[0m\n\033[J")
 	}
 }
 
@@ -268,13 +278,17 @@ var (
 
 func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	dbOk := false
-	if bouncedb != nil { dbOk = bouncedb.Ping() }
+	if bouncedb != nil {
+		dbOk = bouncedb.Ping()
+	}
 	w.Header().Set("Content-Type", "application/json")
 	status := "ok"
 	if !dbOk { status = "degraded" }
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": status, "version": apihandler.Version,
-		"db_ok": dbOk, "uptime": time.Since(startTime).String(),
+		"status":    status,
+		"version":   apihandler.Version,
+		"db_ok":     dbOk,
+		"uptime":    time.Since(startTime).String(),
 	})
 }
 
@@ -290,7 +304,7 @@ func batchHandler(w http.ResponseWriter, req *http.Request) {
 	if err := json.NewDecoder(req.Body).Decode(&batch); err != nil || len(batch) == 0 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid body"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid body, expected [{\"method\":\"GET\",\"path\":\"/api/...\"},...]"})
 		return
 	}
 	var results []map[string]interface{}
@@ -303,7 +317,9 @@ func batchHandler(w http.ResponseWriter, req *http.Request) {
 		var body interface{}
 		json.Unmarshal(rec.Body.Bytes(), &body)
 		results = append(results, map[string]interface{}{
-			"path": br.Path, "status": rec.Code, "body": body,
+			"path":   br.Path,
+			"status": rec.Code,
+			"body":   body,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -322,23 +338,26 @@ func metricsResetHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte(`{"status":"ok","message":"metrics reset"}`))
 }
 
+// ── TUI keyboard handler ──
 func listenKeys() {
-	reader := bufio.NewReader(os.Stdin)
+	var buf [1]byte
 	for {
-		line, _ := reader.ReadString('\n')
-		if strings.TrimSpace(line) == "r" || strings.TrimSpace(line) == "R" {
+		os.Stdin.Read(buf[:])
+		if buf[0] == 'r' || buf[0] == 'R' {
 			metrics.ResetAll()
 		}
 	}
 }
 
-var tuiReqLog [24]string
+// ── TUI request log ──
+var tuiReqLog [8]string
 var tuiReqIdx int
 var tuiReqMu sync.Mutex
 
 func tuiLogReq(method, path string, code int, dur time.Duration) {
 	tuiReqMu.Lock()
-	tuiReqLog[tuiReqIdx%24] = fmt.Sprintf("%3d %s %s %v", code, method, path, dur.Round(time.Microsecond))
+	c := "32"; if code >= 400 { c = "31" } else if code >= 300 { c = "33" }
+	tuiReqLog[tuiReqIdx%8] = fmt.Sprintf("\033[%sm%3d\033[0m \033[36m%s\033[0m \033[90m%s\033[0m %v", c, code, method, path, dur.Round(time.Microsecond))
 	tuiReqIdx++
 	tuiReqMu.Unlock()
 }
