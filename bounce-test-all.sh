@@ -8,6 +8,8 @@ BASE="http://$HOST"
 OUT="bounce-test-results"
 rm -rf "$OUT"
 mkdir -p "$OUT"
+# Wait for server to be ready
+for i in 1 2 3 4 5; do curl -s "$BASE/health" > /dev/null 2>&1 && break; sleep 1; done
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 pass=0; fail=0
@@ -36,6 +38,8 @@ echo "  Results saved to: $OUT/"
 echo "══════════════════════════════════════════════"
 echo ""
 
+# Wait for server to be ready
+sleep 2
 echo "── System ──"
 test_ep GET "/health" "health"
 test_ep GET "/metrics" "metrics"
@@ -43,7 +47,6 @@ echo ""
 
 echo "── Competitions ──"
 test_ep GET "/api/competitions" "competitions"
-test_ep GET "/api/competition/10902/stats" "comp-stats"
 test_ep GET "/api/competition/10902/mvp" "comp-mvp"
 echo ""
 

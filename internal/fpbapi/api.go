@@ -268,25 +268,6 @@ func (f *FPBAPI) GetGamesByCompetition(compID, season string) ([]models.Game, er
 	return g, nil
 }
 
-func (f *FPBAPI) GetCompetitionStats(compID string) ([]scraper.CompPlayerStat, error) {
-	key := cache.CacheKey("compstats", compID)
-	if raw, ok := f.cache.Get(key); ok {
-		var s []scraper.CompPlayerStat
-		if err := json.Unmarshal(raw, &s); err == nil { return s, nil }
-	}
-	body, err := f.http.Get(fmt.Sprintf("%s/estatistica/%s/", fpbBase, compID))
-	if err != nil {
-		if raw, ok := f.cache.GetStale(key); ok {
-			var s []scraper.CompPlayerStat
-			if json.Unmarshal(raw, &s) == nil { return s, nil }
-		}
-		return nil, err
-	}
-	stats := scraper.ScrapeCompetitionStats(string(body))
-	raw2, _ := json.Marshal(stats)
-	f.cache.Set(key, raw2, cache.TTLStandings)
-	return stats, nil
-}
 
 type CompMVP struct {
 	Category string `json:"categoria"`

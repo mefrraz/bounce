@@ -651,38 +651,4 @@ func ScrapeTugaBasketTeams(html string) []TBTeamStat {
 
 // ── Competition Player Stats ──
 
-type CompPlayerStat struct {
-	Name  string `json:"nome"`
-	Team  string `json:"equipa"`
-	Games int    `json:"jogos"`
-	PTS   int    `json:"pts"`
-	REB   int    `json:"reb"`
-	AST   int    `json:"ast"`
-	STL   int    `json:"stl"`
-	BLK   int    `json:"blk"`
-	VAL   int    `json:"val"`
-}
 
-func ScrapeCompetitionStats(html string) []CompPlayerStat {
-	var stats []CompPlayerStat
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil { return stats }
-	doc.Find("table tr").Each(func(_ int, row *goquery.Selection) {
-		cells := row.Find("td")
-		if cells.Length() < 11 { return }
-		name := strings.TrimSpace(cells.Eq(2).Text())
-		if name == "" || strings.Contains(name, "Nome") { return }
-		stats = append(stats, CompPlayerStat{
-			Name:  name,
-			Team:  strings.TrimSpace(cells.Eq(3).Text()),
-			Games: atoi(strings.TrimSpace(cells.Eq(4).Text())),
-			PTS:   atoi(strings.TrimSpace(cells.Eq(5).Text())),
-			REB:   atoi(strings.TrimSpace(cells.Eq(6).Text())),
-			AST:   atoi(strings.TrimSpace(cells.Eq(7).Text())),
-			STL:   atoi(strings.TrimSpace(cells.Eq(8).Text())),
-			BLK:   atoi(strings.TrimSpace(cells.Eq(9).Text())),
-			VAL:   atoi(strings.TrimSpace(cells.Eq(10).Text())),
-		})
-	})
-	return stats
-}
