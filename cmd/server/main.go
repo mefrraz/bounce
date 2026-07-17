@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/signal"
+"golang.org/x/term"
 	"sync"
 	"path/filepath"
 	"runtime"
@@ -259,7 +260,7 @@ func runTUI(port string, handler http.Handler) {
 			runtime.NumGoroutine(), rps*2, uptime)
 
 		// Recent requests
-		for i := 0; i < 8; i++ {
+		for i := 0; i < 20; i++ {
 			idx := (tuiReqIdx - 1 - i + 8) % 8
 			if tuiReqLog[idx] != "" {
 				fmt.Printf("  %s\n", tuiReqLog[idx])
@@ -340,6 +341,8 @@ func metricsResetHandler(w http.ResponseWriter, _ *http.Request) {
 
 // ── TUI keyboard handler ──
 func listenKeys() {
+	oldState, _ := term.MakeRaw(int(os.Stdin.Fd()))
+	defer term.Restore(int(os.Stdin.Fd()), oldState)
 	var buf [1]byte
 	for {
 		os.Stdin.Read(buf[:])
@@ -350,14 +353,14 @@ func listenKeys() {
 }
 
 // ── TUI request log ──
-var tuiReqLog [8]string
+var tuiReqLog [24]string
 var tuiReqIdx int
 var tuiReqMu sync.Mutex
 
 func tuiLogReq(method, path string, code int, dur time.Duration) {
 	tuiReqMu.Lock()
 	c := "32"; if code >= 400 { c = "31" } else if code >= 300 { c = "33" }
-	tuiReqLog[tuiReqIdx%8] = fmt.Sprintf("\033[%sm%3d\033[0m \033[36m%s\033[0m \033[90m%s\033[0m %v", c, code, method, path, dur.Round(time.Microsecond))
+	tuiReqLog[tuiReqIdx%24] = fmt.Sprintf("\033[%sm%3d\033[0m \033[36m%s\033[0m \033[90m%s\033[0m %v", c, code, method, path, dur.Round(time.Microsecond))
 	tuiReqIdx++
 	tuiReqMu.Unlock()
 }
