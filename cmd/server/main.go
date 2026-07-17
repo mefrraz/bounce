@@ -94,7 +94,7 @@ r := chi.NewRouter()
 router = r
 r.Use(middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
 quiet := os.Getenv("BOUNCE_QUIET") != ""
-if !quiet {
+if !quiet && !tuiMode {
 		r.Use(prettyLogger)
 	}
 	if tuiMode {
