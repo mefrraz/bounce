@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -70,6 +72,7 @@ bouncedb = store
 			et := "score_update"
 			if g.Status == "FINALIZADO" { et = "game_finished" }
 			hub.Broadcast(g.ID, ws.Event{Type: et, Data: g})
+			fireWebhook(et, g)
 		},
 	)
 	hub.SetCallbacks(
@@ -86,6 +89,7 @@ bouncedb = store
 	}
 
 r := chi.NewRouter()
+router = r
 r.Use(middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
 quiet := os.Getenv("BOUNCE_QUIET") != ""
 if !quiet && !tuiMode {
@@ -104,6 +108,7 @@ r.Get("/metrics", metricsHandler)
 r.Get("/api/metrics/history", metrics.HistoryHandler)
 r.Get("/api/metrics/history/simple", metrics.HistoryHandlerSimple)
 r.Get("/dashboard", metrics.DashboardHandler)
+r.Post("/api/batch", batchHandler)
 
 	apihandler.NewHandler(fpb).RegisterRoutes(r)
 	hub.RegisterRoutes(r)
@@ -251,7 +256,10 @@ func runTUI(port string, handler http.Handler) {
 	}
 }
 
-var bouncedb *cache.Store
+var (
+	router   chi.Router
+	bouncedb *cache.Store
+)
 
 func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	dbOk := false
@@ -267,4 +275,44 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 		"db_ok":     dbOk,
 		"uptime":    time.Since(startTime).String(),
 	})
+}
+
+var webhookURL = os.Getenv("BOUNCE_WEBHOOK_URL")
+
+type batchReq struct {
+	Method string `json:"method"`
+	Path   string `json:"path"`
+}
+
+func batchHandler(w http.ResponseWriter, req *http.Request) {
+	var batch []batchReq
+	if err := json.NewDecoder(req.Body).Decode(&batch); err != nil || len(batch) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid body, expected [{\"method\":\"GET\",\"path\":\"/api/...\"},...]"})
+		return
+	}
+	var results []map[string]interface{}
+	for _, br := range batch {
+		method := br.Method
+		if method == "" { method = "GET" }
+		subReq, _ := http.NewRequest(method, "http://localhost"+br.Path, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, subReq)
+		var body interface{}
+		json.Unmarshal(rec.Body.Bytes(), &body)
+		results = append(results, map[string]interface{}{
+			"path":   br.Path,
+			"status": rec.Code,
+			"body":   body,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}
+
+func fireWebhook(event string, data interface{}) {
+	if webhookURL == "" { return }
+	payload, _ := json.Marshal(map[string]interface{}{"event": event, "data": data, "time": time.Now().UTC()})
+	go func() { http.Post(webhookURL, "application/json", bytes.NewReader(payload)) }()
 }
