@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/signal"
+	"sync"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -93,9 +94,12 @@ r := chi.NewRouter()
 router = r
 r.Use(middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
 quiet := os.Getenv("BOUNCE_QUIET") != ""
-if !quiet && !tuiMode {
-	r.Use(prettyLogger)
-}
+if !quiet {
+		r.Use(prettyLogger)
+	}
+	if tuiMode {
+		r.Use(tuiLogger)
+	}
 r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{corsOrigin}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
 
 rl := newRateLimiter(rateLimit, time.Minute)
@@ -255,7 +259,7 @@ func runTUI(port string, handler http.Handler) {
 			runtime.NumGoroutine(), rps*2, uptime)
 
 		// Footer
-		fmt.Printf("\n  \033[90mPress Ctrl+C to stop  Press Ctrl+C to stop33[90mR=resetPress Ctrl+C to stop33[0m\033[0m\n\033[J")
+		fmt.Printf("\n  \033[90mPress Ctrl+C to stop  R=reset\033[0m\n\033[J")
 	}
 }
 
@@ -335,4 +339,26 @@ func listenKeys() {
 			metrics.ResetAll()
 		}
 	}
+}
+
+// ── TUI request log ──
+var tuiReqLog [8]string
+var tuiReqIdx int
+var tuiReqMu sync.Mutex
+
+func tuiLogReq(method, path string, code int, dur time.Duration) {
+	tuiReqMu.Lock()
+	c := "32"; if code >= 400 { c = "31" } else if code >= 300 { c = "33" }
+	tuiReqLog[tuiReqIdx%8] = fmt.Sprintf("\033[%sm%3d\033[0m \033[36m%s\033[0m \033[90m%s\033[0m %v", c, code, method, path, dur.Round(time.Microsecond))
+	tuiReqIdx++
+	tuiReqMu.Unlock()
+}
+
+func tuiLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		next.ServeHTTP(ww, r)
+		tuiLogReq(r.Method, r.URL.Path, ww.Status(), time.Since(start))
+	})
 }
