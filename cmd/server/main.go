@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -18,6 +19,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"golang.org/x/crypto/acme/autocert"
 
 	apihandler "github.com/mefrraz/bounce/internal/api"
 	"github.com/mefrraz/bounce/internal/cache"
@@ -42,10 +44,13 @@ func main() {
 	if rlEnv := os.Getenv("BOUNCE_RATE_LIMIT"); rlEnv != "" {
 		if n, err := strconv.Atoi(rlEnv); err == nil && n > 0 { rateLimit = n }
 	}
+	tlsDomain := os.Getenv("BOUNCE_TLS_DOMAIN")
+	tlsCache := os.Getenv("BOUNCE_TLS_CACHE")
 
 	tuiMode := os.Getenv("BOUNCE_TUI") == "true"
 
 	store, err := cache.NewStore(filepath.Join(dataDir, "bounce.db"))
+bouncedb = store
 	if err != nil { log.Fatalf("cache: %v", err) }
 	defer store.Close()
 
@@ -93,7 +98,7 @@ r.Use(rl.middleware)
 
 r.Get("/test", apihandler.TestPage)
 r.Get("/", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/dashboard", 302) })
-r.Get("/health", apihandler.Health)
+r.Get("/health", healthHandler)
 r.Get("/docs", docs.Handler)
 r.Get("/metrics", metricsHandler)
 r.Get("/api/metrics/history", metrics.HistoryHandler)
@@ -121,8 +126,23 @@ ws.RegisterDashboardRoute(r)
 	defer stop()
 
 go func() {
-		slog.Info("starting", "version", apihandler.Version, "addr", srv.Addr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed { log.Fatalf("server: %v", err) }
+		if tlsDomain != "" {
+			if tlsCache == "" { tlsCache = filepath.Join(dataDir, "autocert") }
+			os.MkdirAll(tlsCache, 0700)
+			m := &autocert.Manager{
+				Cache:      autocert.DirCache(tlsCache),
+				Prompt:     autocert.AcceptTOS,
+				HostPolicy: autocert.HostWhitelist(tlsDomain),
+			}
+			srv.TLSConfig = &tls.Config{GetCertificate: m.GetCertificate}
+			srv.Addr = ":443"
+			go func() { _ = http.ListenAndServe(":80", m.HTTPHandler(nil)) }()
+			slog.Info("starting", "version", apihandler.Version, "tls_domain", tlsDomain, "addr", ":443")
+			if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed { log.Fatalf("server: %v", err) }
+		} else {
+			slog.Info("starting", "version", apihandler.Version, "addr", srv.Addr)
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed { log.Fatalf("server: %v", err) }
+		}
 	}()
 
 	<-ctx.Done()
@@ -229,4 +249,22 @@ func runTUI(port string, handler http.Handler) {
 		// Footer
 		fmt.Printf("\n  \033[90mPress Ctrl+C to stop\033[0m\n\033[J")
 	}
+}
+
+var bouncedb *cache.Store
+
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
+	dbOk := false
+	if bouncedb != nil {
+		dbOk = bouncedb.Ping()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	status := "ok"
+	if !dbOk { status = "degraded" }
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    status,
+		"version":   apihandler.Version,
+		"db_ok":     dbOk,
+		"uptime":    time.Since(startTime).String(),
+	})
 }

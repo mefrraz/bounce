@@ -82,6 +82,7 @@ func (s *Store) Invalidate(prefix string) error {
 }
 
 func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Ping() bool { return s.db.Ping() == nil }
 
 func (s *Store) SaveMetric(ts time.Time, requests, cacheHits, cacheMisses, fpbRequests, rateLimited uint64, goroutines int) {
 	s.db.Exec(`INSERT INTO metrics_snapshots (time, requests, cache_hits, cache_misses, fpb_requests, rate_limited, goroutines) VALUES (?, ?, ?, ?, ?, ?, ?)`,
