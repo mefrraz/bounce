@@ -3,16 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
-	"github.com/mefrraz/bounce/internal/docs"
-	"github.com/mefrraz/bounce/internal/metrics"
-	"github.com/mefrraz/bounce/internal/cache"
-	"runtime"
 	"os/signal"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -21,8 +20,11 @@ import (
 	"github.com/go-chi/cors"
 
 	apihandler "github.com/mefrraz/bounce/internal/api"
+	"github.com/mefrraz/bounce/internal/cache"
+	"github.com/mefrraz/bounce/internal/docs"
 	"github.com/mefrraz/bounce/internal/fpbapi"
 	"github.com/mefrraz/bounce/internal/httpclient"
+	"github.com/mefrraz/bounce/internal/metrics"
 	"github.com/mefrraz/bounce/internal/models"
 	"github.com/mefrraz/bounce/internal/scheduler"
 	"github.com/mefrraz/bounce/internal/ws"
@@ -35,6 +37,13 @@ func main() {
 	dataDir := os.Getenv("BOUNCE_DATA_DIR")
 	if dataDir == "" { dataDir = "/data" }
 	if err := os.MkdirAll(dataDir, 0755); err != nil { log.Fatalf("data dir: %v", err) }
+
+	rateLimit := 100
+	if rlEnv := os.Getenv("BOUNCE_RATE_LIMIT"); rlEnv != "" {
+		if n, err := strconv.Atoi(rlEnv); err == nil && n > 0 { rateLimit = n }
+	}
+
+	tuiMode := os.Getenv("BOUNCE_TUI") == "true"
 
 	store, err := cache.NewStore(filepath.Join(dataDir, "bounce.db"))
 	if err != nil { log.Fatalf("cache: %v", err) }
@@ -73,12 +82,13 @@ func main() {
 
 r := chi.NewRouter()
 r.Use(middleware.Recoverer, middleware.RealIP, middleware.Compress(5))
-if os.Getenv("BOUNCE_QUIET") == "" {
-	r.Use(middleware.Logger)
+quiet := os.Getenv("BOUNCE_QUIET") != ""
+if !quiet && !tuiMode {
+	r.Use(prettyLogger)
 }
 r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{corsOrigin}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Content-Type", "Authorization"}, AllowCredentials: false, MaxAge: 86400}))
 
-rl := newRateLimiter(100, time.Minute)
+rl := newRateLimiter(rateLimit, time.Minute)
 r.Use(rl.middleware)
 
 r.Get("/test", apihandler.TestPage)
@@ -99,6 +109,11 @@ ws.RegisterDashboardRoute(r)
 	metrics.StartRecording()
 	go metricsBroadcaster()
 
+	if tuiMode {
+		runTUI(port, r)
+		return
+	}
+
 	go func() { fpb.GetCompetitions(); fpb.GetStandings("10902"); slog.Info("pre-warm complete") }()
 	srv := &http.Server{Addr: ":" + port, Handler: r}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -111,15 +126,37 @@ go func() {
 
 	<-ctx.Done()
 	slog.Info("shutting down...")
+	metrics.RecordSnapshot() // save final state
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	srv.Shutdown(shutdownCtx)
 }
 
-var startTime = time.Now()
-var apiKey = ""
+func prettyLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		next.ServeHTTP(ww, r)
+		fmt.Printf("\033[90m[%s]\033[0m \033[36m%s\033[0m %s → \033[%dm%d\033[0m %v\n",
+			time.Now().Format("15:04:05"),
+			r.Method,
+			r.URL.Path,
+			statusColor(ww.Status()),
+			ww.Status(),
+			time.Since(start).Round(time.Microsecond),
+		)
+	})
+}
 
-func init() { startTime = time.Now(); apiKey = os.Getenv("BOUNCE_API_KEY") }
+func statusColor(code int) int {
+	if code < 300 { return 32 } // green
+	if code < 400 { return 33 } // yellow
+	return 31 // red
+}
+
+var startTime = time.Now()
+
+func init() { startTime = time.Now() }
 
 func metricsHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -143,14 +180,52 @@ func metricsBroadcaster() {
 	defer ticker.Stop()
 	for range ticker.C {
 		data := map[string]interface{}{
-			"requests":      metrics.RequestsTotal,
-			"cache_hits":    metrics.CacheHitsTotal,
-			"cache_misses":  metrics.CacheMissesTotal,
-			"fpb_requests":  metrics.FPBRequestsTotal,
-			"rate_limited":  metrics.RateLimitedTotal,
-			"goroutines":    runtime.NumGoroutine(),
-			"uptime_seconds": int(time.Since(startTime).Seconds()),
+			"requests":       metrics.RequestsTotal,
+			"cache_hits":      metrics.CacheHitsTotal,
+			"cache_misses":    metrics.CacheMissesTotal,
+			"fpb_requests":    metrics.FPBRequestsTotal,
+			"rate_limited":    metrics.RateLimitedTotal,
+			"goroutines":      runtime.NumGoroutine(),
+			"uptime_seconds":  int(time.Since(startTime).Seconds()),
 		}
-	ws.BroadcastMetrics(data)
+		ws.BroadcastMetrics(data)
+	}
+}
+
+// ── TUI mode ──
+
+func runTUI(port string, handler http.Handler) {
+	fmt.Print("\033[2J\033[?25l")
+	defer fmt.Print("\033[?25h")
+
+	srv := &http.Server{Addr: ":" + port, Handler: handler}
+	go func() { srv.ListenAndServe() }()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	var lastReq uint64
+	for range ticker.C {
+		reqs := metrics.RequestsTotal
+		rps := reqs - lastReq
+		lastReq = reqs
+		ch := metrics.CacheHitsTotal
+		cm := metrics.CacheMissesTotal
+		total := ch + cm
+		rate := 0
+		if total > 0 { rate = int(ch * 100 / total) }
+		uptime := time.Since(startTime).Round(time.Second)
+
+		// Header
+		fmt.Printf("\033[H\033[1;38;5;208m  Bounce v%s  ●  :%s\033[0m\n", apihandler.Version, port)
+
+		// Left side: metrics
+		fmt.Printf("\033[32m  Requests:\033[0m %d  \033[90m│\033[0m  \033[36mCache:\033[0m %d%%  \033[90m│\033[0m  \033[33mFPB Reqs:\033[0m %d  \033[90m│\033[0m  \033[31mLimited:\033[0m %d\n",
+			reqs, rate, metrics.FPBRequestsTotal, metrics.RateLimitedTotal)
+		fmt.Printf("  \033[35mGoroutines:\033[0m %d  \033[90m│\033[0m  \033[34mReqs/sec:\033[0m %d  \033[90m│\033[0m  \033[37mUptime:\033[0m %v\n",
+			runtime.NumGoroutine(), rps*2, uptime)
+
+		// Footer
+		fmt.Printf("\n  \033[90mPress Ctrl+C to stop\033[0m\n\033[J")
 	}
 }
