@@ -10,14 +10,14 @@ import (
 )
 
 type Snapshot struct {
-	Time         time.Time
-	Requests     uint64
-	CacheHits    uint64
-	CacheMisses  uint64
-	FPBRequests  uint64
-	RateLimited  uint64
-	MemAlloc     uint64
-	Goroutines   int
+	Time        time.Time `json:"time"`
+	Requests    uint64    `json:"requests"`
+	CacheHits   uint64    `json:"cache_hits"`
+	CacheMisses uint64    `json:"cache_misses"`
+	FPBRequests uint64    `json:"fpb_requests"`
+	RateLimited uint64    `json:"rate_limited"`
+	MemAlloc    uint64    `json:"-"`
+	Goroutines  int       `json:"-"`
 }
 
 var (
