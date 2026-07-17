@@ -332,7 +332,7 @@ if(snapshots.length===0){
 ['mRequests','mCache','mFpb','mLimited'].forEach(function(k){$(k).textContent='–'});
 return
 }
-var latest=snapshots[snapshots.length-1],first=snapshots[0];
+var latest=snapshots[snapshots.length-1],first=snapshots[0],prev=snapshots.length>1?snapshots[snapshots.length-2]:null;
 $('mRequests').textContent=fmtNumber(Math.max(0,latest.requests-first.requests));
 $('mCache').textContent=fmtNumber(Math.round(computeCacheRate(latest)))+'%';
 $('mFpb').textContent=fmtNumber(Math.max(0,latest.fpbRequests-first.fpbRequests));
@@ -464,10 +464,6 @@ function updateToggleIcon(t){$('themeToggle').innerHTML=t==='dark'?'<svg width="
 $('themeToggle').addEventListener('click',function(){var t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);localStorage.setItem('bounce-theme',t);updateToggleIcon(t);renderCharts(lastSnapshots)});
 
 // WebSocket live indicator
-function connectWS(){
-try{
-ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/dashboard');
-ws.onopen=function(){setLive(true)};
 let lastWs={requests:0,cacheHits:0,cacheMisses:0,fpb:0,limited:0};
 ws.onmessage=function(e){try{var d=JSON.parse(e.data);
 var r=d.requests||0,ch=d.cache_hits||0,cm=d.cache_misses||0,fp=d.fpb_requests||0,rl=d.rate_limited||0;
@@ -483,45 +479,3 @@ $('mGoroutines').textContent=fmtNumber(d.goroutines||0);
 lastWs={requests:r,cacheHits:ch,cacheMisses:cm,fpb:fp,limited:rl};
 $('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())
 }catch(ex){}};
-ws.onclose=function(){setLive(false);if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
-}catch(ex){}
-}
-
-// Tooltip: create a shared div for each chart card
-Object.keys(canvases).forEach(function(k){
-var canvas=canvases[k];if(!canvas)return;
-var card=canvas.closest('.chart-card');if(!card)return;
-var tip=document.createElement('div');tip.className='chart-tooltip';tip.id='tip-'+canvas.id;
-card.appendChild(tip);
-canvas._tooltip=tip;
-
-canvas.addEventListener('mousemove',function(e){
-var pts=canvas._points;if(!pts)return;
-var cRect=canvas.getBoundingClientRect();
-var mx=e.clientX-cRect.left;
-if(mx<pts.padding.left||mx>pts.padding.left+pts.chartW){tip.style.display='none';return}
-var best=null,bestDist=Infinity;
-pts.pts.forEach(function(p,i){
-var px=pts.padding.left+(pts.chartW/(pts.pts.length-1))*i;
-var dist=Math.abs(mx-px);
-if(dist<bestDist){bestDist=dist;best={i:i,px:px,val:pts.pts[i].value}}
-});
-if(!best||bestDist>40){tip.style.display='none';return}
-var t=pts.pts[best.i].time||'';
-var label=t.length>=5?t.substring(0,currentMinutes<=1?8:5):('#'+best.i);
-tip.textContent=label+'  '+Math.round(best.val)+(pts.suffix||'');
-tip.style.left=(best.px-35)+'px';
-tip.style.top='-20px';
-tip.style.display='block'
-});
-canvas.addEventListener('mouseleave',function(){canvas._tooltip.style.display='none'});
-});
-
-window.addEventListener('resize',function(){renderCharts(lastSnapshots)});
-fetchMetrics();scheduleRefresh();
-// Fallback: if still loading after 5s, show attempting
-setTimeout(function(){var lu=$('lastUpdate');if(lu&&lu.textContent==='A carregar\u2026')lu.textContent='A tentar\u2026'},5000)
-})();
-</script>
-</body>
-</html>
