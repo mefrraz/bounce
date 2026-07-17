@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"golang.org/x/crypto/acme/autocert"
+xterm "golang.org/x/term"
 _ "github.com/andybalholm/brotli"
 
 	apihandler "github.com/mefrraz/bounce/internal/api"
@@ -340,11 +341,18 @@ func metricsResetHandler(w http.ResponseWriter, _ *http.Request) {
 
 // ── TUI keyboard handler ──
 func listenKeys() {
+	oldState, err := xterm.MakeRaw(int(os.Stdin.Fd()))
+	if err == nil {
+		defer xterm.Restore(int(os.Stdin.Fd()), oldState)
+	}
 	var buf [1]byte
 	for {
 		os.Stdin.Read(buf[:])
-		if buf[0] == 'r' || buf[0] == 'R' {
+		switch buf[0] {
+		case 'r', 'R':
 			metrics.ResetAll()
+		case 'q', 'Q', 3: // Ctrl+C
+			os.Exit(0)
 		}
 	}
 }
