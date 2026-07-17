@@ -3,29 +3,52 @@
   <p align="center"><strong>Smart Sports Data Proxy</strong> para basquetebol português.<br>Dados da FPB e TugaBasket, cache inteligente, dashboard em tempo real.</p>
 </p>
 
-> **v7.4.19** — Dashboard ao vivo · TUI mode · Métricas persistentes · 20+ endpoints
+> **v7.4.20** — Dashboard ao vivo · TUI mode · Docker · binário · 20+ endpoints · [bounce.dribly.pt](https://bounce.dribly.pt)
 
 ---
-n## 🎛️ Modos de execução
 
-O Bounce tem dois modos. Escolhe o que preferires:
+## 🎯 Porquê o Bounce
 
-### Modo 1 — Background (servidor web)
-```bash
-BOUNCE_DATA_DIR=./data ./bounce &
-```
-Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
+Aceder a dados de basquetebol português é frustrante. A FPB não tem API pública, o TugaBasket é só HTML. Cada app que precisa destes dados tem de implementar o seu próprio scraping — duplicando esforço, sem cache, inconsistente. O Bounce faz esse trabalho uma vez e expõe tudo como JSON limpo, para toda a gente usar.
 
-### Modo 2 — TUI (terminal dashboard)
-```bash
-BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
-```
-Dashboard ao vivo diretamente no terminal:
-- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
-- Log ao vivo das últimas 8 requests
-- `r` + Enter = reset total de métricas e base de dados
-- `Ctrl+C` = sair
+- ✅ API JSON para FPB + TugaBasket
+- ✅ Cache inteligente (SQLite, TTL adaptativo)
+- ✅ Painel de métricas em tempo real
+- ✅ Open source, self-hosted ou API pública gratuita
 
+---
+
+## ✨ Funcionalidades
+
+### 🔌 API JSON
+
+| Endpoint | Descrição |
+|---|---|
+| Jogos com scores | `/api/games?club=119&season=2025/2026` |
+| Classificações | `/api/standings/10902` — J, V, D, PM, PS, PTS |
+| Atletas | `/api/athlete/269564` — foto, stats, clube |
+| Equipas | `/api/team/equipa_57682` — plantel, jogos |
+| ELO + Previsões | `/api/elo` + `/api/predictions/{id}` |
+| TugaBasket | standings, players (22 stats), teams |
+| WebSocket | `/ws/game/{id}` — atualizações em tempo real |
+
+### ⚡ Performance
+
+- Cache SQLite com TTL inteligente (2min jogos do dia, 24h histórico)
+- Pre-warming ao arranque
+- Gzip automático
+- Binário ~12MB, imagem Docker ~15MB
+
+### 🖥️ Interface
+
+| Página | URL | O que faz |
+|--------|-----|-----------|
+| Dashboard | `/dashboard` | Métricas + gráficos canvas |
+| API Docs | `/docs` | Documentação interativa |
+| API Test | `/test` | Testar cada endpoint |
+| Metrics | `/metrics` | JSON com métricas |
+
+---
 
 ## 📦 Instalação
 
@@ -37,17 +60,16 @@ docker run -d --name bounce --restart unless-stopped \
   ghcr.io/mefrraz/bounce:latest
 ```
 
-### Opção 2 — Binário pre-compilado
-Faz download do binário para o teu SO em [Releases](https://github.com/mefrraz/bounce/releases):
+### Opção 2 — Binário
 ```bash
-chmod +x bounce-linux-amd64
-BOUNCE_DATA_DIR=./data ./bounce-linux-amd64 &
+curl -L https://github.com/mefrraz/bounce/releases/latest/download/bounce-linux-amd64 -o bounce
+chmod +x bounce
+BOUNCE_DATA_DIR=./data ./bounce &
 ```
 
 ### Opção 3 — Go (from source)
 ```bash
-git clone https://github.com/mefrraz/bounce.git
-cd bounce
+git clone https://github.com/mefrraz/bounce.git && cd bounce
 go build -o bounce ./cmd/server
 BOUNCE_DATA_DIR=./data ./bounce &
 ```
@@ -55,211 +77,117 @@ BOUNCE_DATA_DIR=./data ./bounce &
 ### Verificar
 ```bash
 curl http://localhost:3001/health
-# {"status":"ok","version":"v7.4.19","db_ok":true,"uptime":"5s"}
+# → {"status":"ok","version":"v7.4.20","db_ok":true,"uptime":"5s"}
 # Abre http://localhost:3001/dashboard
 ```
 
 ---
-n## 🎛️ Modos de execução
 
-O Bounce tem dois modos. Escolhe o que preferires:
+## 🎯 Como usar
 
-### Modo 1 — Background (servidor web)
+### API pública (zero instalação)
+
+Aponta os pedidos para `https://bounce.dribly.pt`:
+
 ```bash
-BOUNCE_DATA_DIR=./data ./bounce &
+curl https://bounce.dribly.pt/api/games?club=119&season=2025/2026
+curl https://bounce.dribly.pt/api/standings/10902
 ```
-Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
 
-### Modo 2 — TUI (terminal dashboard)
+- Sempre online, zero manutenção
+- **100 pedidos/minuto** (limite público)
+- Ideal para testar ou projetos pequenos
+
+### Self-Hosting (sem limites)
+
+Três opções:
+
+**Docker:**
 ```bash
-BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
+docker run -d --name bounce --restart unless-stopped \
+  -p 3001:3001 -v bounce-data:/data \
+  ghcr.io/mefrraz/bounce:latest
 ```
-Dashboard ao vivo diretamente no terminal:
-- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
-- Log ao vivo das últimas 8 requests
-- `r` + Enter = reset total de métricas e base de dados
-- `Ctrl+C` = sair
 
+**Docker Compose:**
+```yaml
+services:
+  bounce:
+    image: ghcr.io/mefrraz/bounce:latest
+    restart: unless-stopped
+    ports: ["3001:3001"]
+    volumes: ["bounce-data:/data"]
+```
 
-## 🌍 Web Interface
+**Binário:**
+```bash
+curl -L https://github.com/mefrraz/bounce/releases/latest/download/bounce-linux-amd64 -o bounce
+chmod +x bounce && BOUNCE_DATA_DIR=./data ./bounce &
+```
 
-| Página | URL | Descrição |
-|--------|-----|-----------|
-| **Dashboard** | `/dashboard` | Métricas em tempo real, gráficos canvas, 8 cards |
-| **API Docs** | `/docs` | Documentação interativa de todos os endpoints |
-| **API Test** | `/test` | Consola para testar cada endpoint no browser |
-| **Metrics** | `/metrics` | JSON com todas as métricas do servidor |
+### Bypass de rate limit (para o teu site)
+
+```bash
+# Site → Bounce (header Origin automático, sem expor chaves)
+BOUNCE_TRUSTED_ORIGINS=omeusite.pt ./bounce &
+
+# Backend → Bounce (chave secreta)
+DRIBLY_KEY=a-minha-chave ./bounce &
+curl -H "X-Dribly-Key: a-minha-chave" http://localhost:3001/api/games?club=119
+```
 
 ---
-n## 🎛️ Modos de execução
 
-O Bounce tem dois modos. Escolhe o que preferires:
+## 🎛️ Modos de execução
 
-### Modo 1 — Background (servidor web)
+### Background
 ```bash
 BOUNCE_DATA_DIR=./data ./bounce &
 ```
-Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
+Servidor web silencioso. Dashboard em `http://localhost:3001/dashboard`.
 
-### Modo 2 — TUI (terminal dashboard)
+### TUI (terminal)
 ```bash
 BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
 ```
-Dashboard ao vivo diretamente no terminal:
-- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
-- Log ao vivo das últimas 8 requests
-- `r` + Enter = reset total de métricas e base de dados
-- `Ctrl+C` = sair
+Métricas ao vivo no terminal. `r` + Enter = reset. `Ctrl+C` = sair.
 
+---
 
-## ⚙️ Environment Variables
+## ⚙️ Variáveis de Ambiente
 
 | Variável | Default | Descrição |
 |----------|---------|-----------|
 | `BOUNCE_PORT` | `3001` | Porta HTTP |
-| `BOUNCE_DATA_DIR` | `/data` | Diretório para SQLite e cache TLS |
-| `BOUNCE_CORS_ORIGIN` | `*` | Origem CORS permitida |
-| `BOUNCE_RATE_LIMIT` | `100` | Pedidos/minuto por IP |
-| `BOUNCE_LOG_LEVEL` | `warn` | `debug` para logs detalhados |
-| `BOUNCE_QUIET` | (vazio) | `true` para silenciar logs de requests |
-| `BOUNCE_TUI` | (vazio) | `true` para modo terminal dashboard |
-| `BOUNCE_TLS_DOMAIN` | (vazio) | Domínio para HTTPS automático (LetsEncrypt) |
-| `BOUNCE_TLS_CACHE` | `$DATA_DIR/autocert` | Diretório de cache dos certificados |
-| `BOUNCE_TRUSTED_ORIGINS` | (vazio) | Dominios que bypassam rate limit |
-| `DRIBLY_KEY` | (vazio) | Chave para bypass do rate limit (header `X-Dribly-Key`) |
-
-### Modos de execução
-
-```bash
-# Background — web server
-./bounce
-
-# Silencioso — sem logs de requests
-BOUNCE_QUIET=true ./bounce
-
-# TUI — terminal dashboard ao vivo
-BOUNCE_TUI=true BOUNCE_DATA_DIR=/tmp/bdata ./bounce
-
-# HTTPS automático — domínio público com LetsEncrypt
-BOUNCE_TLS_DOMAIN=api.exemplo.com ./bounce
-
-# Debug — logs detalhados
-BOUNCE_LOG_LEVEL=debug ./bounce
-```
+| `BOUNCE_DATA_DIR` | `/data` | SQLite + cache TLS |
+| `BOUNCE_TUI` | (vazio) | `true` = terminal dashboard |
+| `BOUNCE_CORS_ORIGIN` | `*` | Origem CORS |
+| `BOUNCE_RATE_LIMIT` | `100` | Pedidos/min por IP |
+| `BOUNCE_TLS_DOMAIN` | (vazio) | HTTPS automático (LetsEncrypt) |
+| `BOUNCE_TRUSTED_ORIGINS` | (vazio) | Bypass rate limit |
+| `DRIBLY_KEY` | (vazio) | Bypass server-to-server |
 
 ---
-n## 🎛️ Modos de execução
-
-O Bounce tem dois modos. Escolhe o que preferires:
-
-### Modo 1 — Background (servidor web)
-```bash
-BOUNCE_DATA_DIR=./data ./bounce &
-```
-Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
-
-### Modo 2 — TUI (terminal dashboard)
-```bash
-BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
-```
-Dashboard ao vivo diretamente no terminal:
-- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
-- Log ao vivo das últimas 8 requests
-- `r` + Enter = reset total de métricas e base de dados
-- `Ctrl+C` = sair
-
-
-## 🏠 Self-Hosting Guide
-
-### Para usares o Bounce no teu próprio site
-
-**1. Hospeda o Bounce** (VPS, Raspberry Pi, Oracle Free Tier):
-```bash
-git clone https://github.com/mefrraz/bounce.git && cd bounce
-go build -o bounce ./cmd/server
-BOUNCE_DATA_DIR=./data ./bounce &
-```
-
-**2. Configura trusted origins** para o teu site bypassar o rate limit:
-```bash
-BOUNCE_TRUSTED_ORIGINS=omeusite.pt,outrosite.com BOUNCE_DATA_DIR=./data ./bounce &
-```
-- O teu site pode fazer pedidos ilimitados à API sem rate limit
-- **Sem expor API keys no frontend** — o bypass é feito pelo header `Origin` que o browser envia automaticamente
-- Todos os outros visitantes ficam limitados a 100 req/min (configurável)
-
-**3. Para server-to-server** (backend → Bounce), usa `X-Dribly-Key`:
-```bash
-DRIBLY_KEY=a-minha-chave-secreta BOUNCE_DATA_DIR=./data ./bounce &
-```
-```bash
-curl -H "X-Dribly-Key: a-minha-chave-secreta" http://meu-bounce:3001/api/games?club=119
-```
-
-### Como funciona o bypass
-
-| Método | Use case | Expõe a chave? |
-|--------|----------|---------------|
-| `BOUNCE_TRUSTED_ORIGINS` | Site estático / SPA → Bounce | ❌ Não (header Origin automático) |
-| `X-Dribly-Key` | Backend → Bounce | ❌ Não (server-side only) |
-| Sem bypass | Visitantes públicos | 100 req/min por IP |
-
----
-n## 🎛️ Modos de execução
-
-O Bounce tem dois modos. Escolhe o que preferires:
-
-### Modo 1 — Background (servidor web)
-```bash
-BOUNCE_DATA_DIR=./data ./bounce &
-```
-Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
-
-### Modo 2 — TUI (terminal dashboard)
-```bash
-BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
-```
-Dashboard ao vivo diretamente no terminal:
-- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
-- Log ao vivo das últimas 8 requests
-- `r` + Enter = reset total de métricas e base de dados
-- `Ctrl+C` = sair
-
 
 ## 🛠️ Stack
 
 | Camada | Tecnologia |
 |--------|-----------|
 | Linguagem | Go |
-| HTTP Router | chi |
-| Cache | SQLite (modernc.org/sqlite) |
+| HTTP | chi |
+| Cache | SQLite (pure Go, sem CGO) |
 | WebSocket | gorilla/websocket |
 | HTTPS | autocert (LetsEncrypt) |
-| Docker | Multi-stage Alpine |
-| CI/CD | GitHub Actions (multi-arch) |
+| Docker | Multi-stage Alpine (~15MB) |
 
 ---
-n## 🎛️ Modos de execução
-
-O Bounce tem dois modos. Escolhe o que preferires:
-
-### Modo 1 — Background (servidor web)
-```bash
-BOUNCE_DATA_DIR=./data ./bounce &
-```
-Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
-
-### Modo 2 — TUI (terminal dashboard)
-```bash
-BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
-```
-Dashboard ao vivo diretamente no terminal:
-- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
-- Log ao vivo das últimas 8 requests
-- `r` + Enter = reset total de métricas e base de dados
-- `Ctrl+C` = sair
-
 
 ## 📄 Licença
 
 GNU **AGPLv3** — [LICENSE](LICENSE)
+
+<p align="center">
+  <a href="https://bounce.dribly.pt">🌐 bounce.dribly.pt</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/mefrraz/bounce">📦 GitHub</a>
+</p>
