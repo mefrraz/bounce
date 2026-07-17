@@ -424,7 +424,7 @@ var res=await fetch('/api/metrics/history/simple?minutes='+(currentMinutes>=1008
 if(!res.ok)throw new Error('HTTP '+res.status);
 var payload=await res.json(),snapshots=normalizeSnapshots(payload);
 lastSnapshots=snapshots;
-try{renderCards(snapshots);renderCharts(snapshots)}catch(e){console.error('render error:',e)}
+try{renderCards(snapshots);renderCharts(snapshots)}catch(e){console.error('render error:',e);$('mRequestsSub').textContent='erro ao renderizar'}
 }catch(err){
 setLive(false);console.error('Bounce dashboard fetch error:',err)
 }finally{
