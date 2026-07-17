@@ -1,9 +1,13 @@
 <p align="center">
   <h1 align="center">🏀 Bounce</h1>
   <p align="center"><strong>Smart Sports Data Proxy</strong> para basquetebol português.<br>Dados da FPB e TugaBasket, cache inteligente, dashboard em tempo real.</p>
+  <p align="center">
+    <img src="https://img.shields.io/badge/version-v7.6.0-orange" alt="version">
+    <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
+    <img src="https://img.shields.io/badge/go-1.24%2B-blue" alt="go">
+    <img src="https://img.shields.io/badge/docker-ready-blue" alt="docker">
+  </p>
 </p>
-
-> **v6.7.0** — HTTPS automático · Health checks · TUI mode · Métricas persistentes · 20 endpoints
 
 ---
 
@@ -227,4 +231,4 @@ go vet ./...
 
 ## 📄 Licença
 
-GNU **AGPLv3** — [LICENSE](LICENSE)
+MIT — [LICENSE](LICENSE)
