@@ -251,7 +251,7 @@ func runTUI(port string, handler http.Handler) {
 		uptime := time.Since(startTime).Round(time.Second)
 
 		// Header
-		fmt.Printf("\033[2J\033[H\033[1;38;5;208m  Bounce %s  \033[32m● online\033[0m  \033[90m:%s\033[0m\n", apihandler.Version, port)
+		fmt.Printf("\033[H\033[1;38;5;208m  Bounce %s  \033[32m● online\033[0m  \033[90m:%s\033[0m\n", apihandler.Version, port)
 
 		// Left side: metrics
 		fmt.Printf("\033[32m  Requests:\033[0m %d  \033[90m│\033[0m  \033[36mCache:\033[0m %d%%  \033[90m│\033[0m  \033[33mFPB Reqs:\033[0m %d  \033[90m│\033[0m  \033[31mLimited:\033[0m %d\n",
