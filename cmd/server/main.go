@@ -250,13 +250,21 @@ func runTUI(port string, handler http.Handler) {
 		uptime := time.Since(startTime).Round(time.Second)
 
 		// Header
-		fmt.Printf("\033[H\033[1;38;5;208m  Bounce %s  \033[32m● online\033[0m  \033[90m:%s\033[0m\n", apihandler.Version, port)
+		fmt.Printf("\033[2J\033[H\033[1;38;5;208m  Bounce %s  \033[32m● online\033[0m  \033[90m:%s\033[0m\n", apihandler.Version, port)
 
 		// Left side: metrics
 		fmt.Printf("\033[32m  Requests:\033[0m %d  \033[90m│\033[0m  \033[36mCache:\033[0m %d%%  \033[90m│\033[0m  \033[33mFPB Reqs:\033[0m %d  \033[90m│\033[0m  \033[31mLimited:\033[0m %d\n",
 			reqs, rate, metrics.FPBRequestsTotal, metrics.RateLimitedTotal)
 		fmt.Printf("  \033[35mGoroutines:\033[0m %d  \033[90m│\033[0m  \033[34mReqs/sec:\033[0m %d  \033[90m│\033[0m  \033[37mUptime:\033[0m %v\n",
 			runtime.NumGoroutine(), rps*2, uptime)
+
+		// Recent requests
+		for i := 0; i < 8; i++ {
+			idx := (tuiReqIdx - 1 - i + 8) % 8
+			if tuiReqLog[idx] != "" {
+				fmt.Printf("  %s\n", tuiReqLog[idx])
+			}
+		}
 
 		// Footer
 		fmt.Printf("\n  \033[90mPress Ctrl+C to stop  R=reset\033[0m\n\033[J")
