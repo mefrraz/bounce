@@ -29,3 +29,6 @@ coverage.out
 
 # Environment (contains secrets)
 .env
+
+# Test output
+bounce-test-results/
