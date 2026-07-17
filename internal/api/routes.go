@@ -38,6 +38,8 @@ r.Get("/api/competitions", h.GetCompetitions)
 r.Get("/api/athlete/{id}", h.GetAthlete)
 r.Get("/api/team/{id}", h.GetTeam)
 r.Get("/api/club/{clubID}/teams", h.GetClubTeams)
+r.Get("/api/competition/{id}/stats", h.GetCompStats)
+	r.Get("/api/competition/{id}/mvp", h.GetCompMVP)
 r.Get("/api/tugabasket/standings", h.GetTugaBasketStandings)
 r.Get("/api/tugabasket/players", h.GetTugaBasketPlayers)
 r.Get("/api/tugabasket/teams", h.GetTugaBasketTeams)
@@ -349,4 +351,18 @@ func atoiQ(q url.Values, key string, defaultVal int) int {
 	v := 0
 	for _, c := range s { v = v*10 + int(c-'0') }
 return v
+}
+
+func (h *Handler) GetCompStats(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	stats, err := h.FPB.GetCompetitionStats(id)
+	if err != nil { jsonError(w, err.Error(), "FETCH_ERROR", 502); return }
+	writeJSON(w, 200, stats)
+}
+
+func (h *Handler) GetCompMVP(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	mvp, err := h.FPB.GetCompetitionMVP(id)
+	if err != nil { jsonError(w, err.Error(), "FETCH_ERROR", 502); return }
+	writeJSON(w, 200, mvp)
 }

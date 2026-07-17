@@ -267,3 +267,60 @@ func (f *FPBAPI) GetGamesByCompetition(compID, season string) ([]models.Game, er
 	f.cache.Set(key, raw2, cache.TTLStandings)
 	return g, nil
 }
+
+func (f *FPBAPI) GetCompetitionStats(compID string) ([]scraper.CompPlayerStat, error) {
+	key := cache.CacheKey("compstats", compID)
+	if raw, ok := f.cache.Get(key); ok {
+		var s []scraper.CompPlayerStat
+		if err := json.Unmarshal(raw, &s); err == nil { return s, nil }
+	}
+	body, err := f.http.Get(fmt.Sprintf("%s/estatistica/%s/", fpbBase, compID))
+	if err != nil {
+		if raw, ok := f.cache.GetStale(key); ok {
+			var s []scraper.CompPlayerStat
+			if json.Unmarshal(raw, &s) == nil { return s, nil }
+		}
+		return nil, err
+	}
+	stats := scraper.ScrapeCompetitionStats(string(body))
+	raw2, _ := json.Marshal(stats)
+	f.cache.Set(key, raw2, cache.TTLStandings)
+	return stats, nil
+}
+
+type CompMVP struct {
+	Category string `json:"categoria"`
+	Player   string `json:"jogador"`
+	Team     string `json:"equipa"`
+	Value    string `json:"valor"`
+}
+
+func (f *FPBAPI) GetCompetitionMVP(compID string) ([]CompMVP, error) {
+	key := cache.CacheKey("compmvp", compID)
+	if raw, ok := f.cache.Get(key); ok {
+		var m []CompMVP
+		if err := json.Unmarshal(raw, &m); err == nil { return m, nil }
+	}
+	body, err := f.http.Get(fmt.Sprintf("https://sav2.fpb.pt/api/mvp/prova/%s", compID))
+	if err != nil {
+		if raw, ok := f.cache.GetStale(key); ok {
+			var m []CompMVP
+			if json.Unmarshal(raw, &m) == nil { return m, nil }
+		}
+		return nil, err
+	}
+	var raw []struct {
+		Category string `json:"category"`
+		Player   string `json:"player"`
+		Team     string `json:"team"`
+		Value    string `json:"value"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil { return nil, err }
+	var result []CompMVP
+	for _, r := range raw {
+		result = append(result, CompMVP{Category: r.Category, Player: r.Player, Team: r.Team, Value: r.Value})
+	}
+	raw2, _ := json.Marshal(result)
+	f.cache.Set(key, raw2, 60)
+	return result, nil
+}
