@@ -50,13 +50,14 @@ type Competition struct {
 
 type GameDetail struct {
 	Game
-	HomeAbbrev string       `json:"abrev_casa,omitempty"`
-	AwayAbbrev string       `json:"abrev_fora,omitempty"`
-	Phase      string       `json:"fase,omitempty"`
-	Attendance int          `json:"espetadores"`
-	Periods    []Period     `json:"periodos,omitempty"`
-	HomeStats  []PlayerStat `json:"stats_casa,omitempty"`
-	AwayStats  []PlayerStat `json:"stats_fora,omitempty"`
+	HomeAbbrev  string       `json:"abrev_casa,omitempty"`
+	AwayAbbrev  string       `json:"abrev_fora,omitempty"`
+	Phase       string       `json:"fase,omitempty"`
+	Attendance  int          `json:"espetadores"`
+	PavilionID  string       `json:"recinto_id,omitempty"`
+	Periods     []Period     `json:"periodos,omitempty"`
+	HomeStats   []PlayerStat `json:"stats_casa,omitempty"`
+	AwayStats   []PlayerStat `json:"stats_fora,omitempty"`
 	GameLeaders []GameLeader `json:"game_leaders,omitempty"`
 }
 

@@ -256,6 +256,11 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 	// Date, venue, time
 	detail.Date = ParseDatePt(strings.TrimSpace(doc.Find(".date").First().Text()))
 	detail.Venue = strings.TrimSpace(doc.Find(".location a").First().Text())
+	if href, ok := doc.Find(".location a").First().Attr("href"); ok {
+		if m := regexp.MustCompile(`/recinto/(\d+)`).FindStringSubmatch(href); len(m) > 1 {
+			detail.PavilionID = m[1]
+		}
+	}
 	timeText := strings.TrimSpace(doc.Find(".match-time").First().Text())
 	detail.Time = strings.ReplaceAll(strings.ReplaceAll(timeText, " H ", ":"), " ", "")
 
