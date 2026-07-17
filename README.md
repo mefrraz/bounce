@@ -107,6 +107,7 @@ BOUNCE_TUI=true BOUNCE_DATA_DIR=/tmp/bdata ./bounce
 | `BOUNCE_TUI` | (vazio) | `true` para modo terminal dashboard |
 | `BOUNCE_TLS_DOMAIN` | (vazio) | Domínio para HTTPS automático (LetsEncrypt) |
 | `BOUNCE_TLS_CACHE` | `$DATA_DIR/autocert` | Diretório de cache dos certificados |
+| `BOUNCE_TRUSTED_ORIGINS` | (vazio) | Dominios que bypassam rate limit (separados por virgula) |
 | `DRIBLY_KEY` | (vazio) | Chave para bypass do rate limit (header `X-Dribly-Key`) |
 
 ### Modos de execução
@@ -127,6 +128,45 @@ BOUNCE_TLS_DOMAIN=bounce.dribly.pt ./bounce
 # Rate limit alto para testes
 BOUNCE_RATE_LIMIT=5000 ./bounce
 ```
+
+---
+
+## 🏠 Self-Hosting Guide
+
+### Para usares o Bounce no teu próprio site
+
+**1. Hospeda o Bounce** (VPS, Raspberry Pi, Oracle Free Tier):
+```bash
+git clone https://github.com/mefrraz/bounce.git && cd bounce
+go build -o bounce ./cmd/server
+BOUNCE_DATA_DIR=./data ./bounce &
+```
+
+**2. Configura trusted origins** para o teu site bypassar o rate limit:
+```bash
+BOUNCE_TRUSTED_ORIGINS=omeusite.pt,outrosite.com BOUNCE_DATA_DIR=./data ./bounce &
+```
+- O teu site pode fazer pedidos ilimitados à API sem rate limit
+- **Sem expor API keys no frontend** — o bypass é feito pelo header `Origin` que o browser envia automaticamente
+- Todos os outros visitantes ficam limitados a 100 req/min (configurável)
+
+**3. Para server-to-server** (backend → Bounce), usa `X-Dribly-Key`:
+```bash
+DRIBLY_KEY=a-minha-chave-secreta BOUNCE_DATA_DIR=./data ./bounce &
+```
+```bash
+curl -H "X-Dribly-Key: a-minha-chave-secreta" http://meu-bounce:3001/api/games?club=119
+```
+
+### Como funciona o bypass
+
+| Método | Use case | Expõe a chave? |
+|--------|----------|---------------|
+| `BOUNCE_TRUSTED_ORIGINS` | Site estático / SPA → Bounce | ❌ Não (header Origin automático) |
+| `X-Dribly-Key` | Backend → Bounce | ❌ Não (server-side only) |
+| Sem bypass | Visitantes públicos | 100 req/min por IP |
+
+
 
 ---
 

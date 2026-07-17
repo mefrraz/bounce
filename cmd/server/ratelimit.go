@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -50,6 +51,9 @@ func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 		if r.Header.Get("X-Dribly-Key") == os.Getenv("DRIBLY_KEY") && os.Getenv("DRIBLY_KEY") != "" {
 			next.ServeHTTP(w, r); return
 		}
+		if isTrustedOrigin(r) {
+			next.ServeHTTP(w, r); return
+		}
 		ip := r.RemoteAddr
 		rl.mu.Lock()
 		v, exists := rl.visitors[ip]
@@ -73,4 +77,17 @@ func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isTrustedOrigin(r *http.Request) bool {
+	trusted := os.Getenv("BOUNCE_TRUSTED_ORIGINS")
+	if trusted == "" { return false }
+	origin := r.Header.Get("Origin")
+	if origin == "" { origin = r.Header.Get("Referer") }
+	for _, t := range strings.Split(trusted, ",") {
+		t = strings.TrimSpace(t)
+		if t == "" { continue }
+		if strings.Contains(origin, t) { return true }
+	}
+	return false
 }
