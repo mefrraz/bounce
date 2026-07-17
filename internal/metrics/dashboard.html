@@ -346,6 +346,11 @@ subText($('mLimitedSub'),latest.rateLimited,prev.rateLimited)
 }
 
 function renderCharts(snapshots){
+if(!snapshots||snapshots.length===0){
+['chartRequests','chartCache','chartFpb','chartTotal'].forEach(function(id){var c=document.getElementById(id);if(c){var ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height)}});
+$('chartRequestsCurrent').textContent='0';$('chartCacheCurrent').textContent='0%';$('chartFpbCurrent').textContent='0';$('chartTotalCurrent').textContent='0';
+return
+}
 // Bucket config: group 10s snapshots into time-aligned buckets
 var cfg;
 if(currentMinutes<=1)cfg={bucketSecs:10,count:6};
