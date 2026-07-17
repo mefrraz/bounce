@@ -66,6 +66,14 @@ func (s *Store) Get(key string) ([]byte, bool) {
 	return value, true
 }
 
+// GetStale returns cached data even if TTL has expired (for fallback when FPB is down)
+func (s *Store) GetStale(key string) ([]byte, bool) {
+	var value []byte
+	err := s.db.QueryRow("SELECT value FROM cache_entries WHERE key = ?", key).Scan(&value)
+	if err != nil { return nil, false }
+	return value, true
+}
+
 func (s *Store) Set(key string, value []byte, ttlMin int) error {
 	_, err := s.db.Exec("INSERT OR REPLACE INTO cache_entries (key, value, ttl_min, created_at) VALUES (?, ?, ?, unixepoch())", key, value, ttlMin)
 	return err

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -322,6 +323,19 @@ func (h *Handler) GetGamesPaginated(w http.ResponseWriter, r *http.Request) {
 	if offset >= total { offset = total }
 	end := offset + limit
 	if end > total { end = total }
+
+	// Pagination Link headers
+	baseURL := fmt.Sprintf("/api/games/paginated?club=%s&season=%s&limit=%d", club, season, limit)
+	var links []string
+	if offset > 0 {
+		prevOff := offset - limit
+		if prevOff < 0 { prevOff = 0 }
+		links = append(links, fmt.Sprintf(`<%s&offset=%d>; rel="prev"`, baseURL, prevOff))
+	}
+	if end < total {
+		links = append(links, fmt.Sprintf(`<%s&offset=%d>; rel="next"`, baseURL, end))
+	}
+	if len(links) > 0 { w.Header().Set("Link", strings.Join(links, ", ")) }
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"total": total, "limit": limit, "offset": offset,

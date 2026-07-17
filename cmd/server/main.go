@@ -22,6 +22,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"golang.org/x/crypto/acme/autocert"
+_ "github.com/andybalholm/brotli"
 
 	apihandler "github.com/mefrraz/bounce/internal/api"
 	"github.com/mefrraz/bounce/internal/cache"

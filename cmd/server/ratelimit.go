@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -60,6 +61,8 @@ func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 		if !exists {
 			rl.visitors[ip] = &visitor{count: 1, lastSeen: time.Now()}
 			rl.mu.Unlock()
+			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(rl.limit-1))
+			w.Header().Set("X-RateLimit-Reset", "60")
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -69,6 +72,12 @@ func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 		}
 		v.count++
 		rl.mu.Unlock()
+		remaining := rl.limit - v.count
+		if remaining < 0 { remaining = 0 }
+		resetSec := int(rl.window.Seconds() - time.Since(v.lastSeen).Seconds())
+		if resetSec < 0 { resetSec = 0 }
+		w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
+		w.Header().Set("X-RateLimit-Reset", strconv.Itoa(resetSec))
 		if v.count > rl.limit {
 			metrics.IncRateLimited()
 			w.Header().Set("Retry-After", "60")
