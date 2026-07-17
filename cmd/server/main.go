@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -15,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -24,7 +26,7 @@ import (
 	"github.com/go-chi/cors"
 	"golang.org/x/crypto/acme/autocert"
 	_ "github.com/andybalholm/brotli"
-	"golang.org/x/term"
+	
 
 	apihandler "github.com/mefrraz/bounce/internal/api"
 	"github.com/mefrraz/bounce/internal/cache"
@@ -321,12 +323,12 @@ func metricsResetHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func listenKeys() {
-	oldState, _ := term.MakeRaw(int(os.Stdin.Fd()))
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
-	var buf [1]byte
+	reader := bufio.NewReader(os.Stdin)
 	for {
-		os.Stdin.Read(buf[:])
-		if buf[0] == 'r' || buf[0] == 'R' { metrics.ResetAll() }
+		line, _ := reader.ReadString('\n')
+		if strings.TrimSpace(line) == "r" || strings.TrimSpace(line) == "R" {
+			metrics.ResetAll()
+		}
 	}
 }
 
@@ -336,8 +338,7 @@ var tuiReqMu sync.Mutex
 
 func tuiLogReq(method, path string, code int, dur time.Duration) {
 	tuiReqMu.Lock()
-	c := "32"; if code >= 400 { c = "31" } else if code >= 300 { c = "33" }
-	tuiReqLog[tuiReqIdx%24] = fmt.Sprintf("\033[%sm%3d\033[0m \033[36m%s\033[0m \033[90m%s\033[0m %v", c, code, method, path, dur.Round(time.Microsecond))
+	tuiReqLog[tuiReqIdx%24] = fmt.Sprintf("%3d %s %s %v", code, method, path, dur.Round(time.Microsecond))
 	tuiReqIdx++
 	tuiReqMu.Unlock()
 }
