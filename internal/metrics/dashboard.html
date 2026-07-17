@@ -332,7 +332,7 @@ if(snapshots.length===0){
 ['mRequests','mCache','mFpb','mLimited'].forEach(function(k){$(k).textContent='–'});
 return
 }
-var latest=snapshots[snapshots.length-1],first=snapshots[0];
+var latest=snapshots[snapshots.length-1],first=snapshots[0],prev=snapshots.length>1?snapshots[snapshots.length-2]:null;
 $('mRequests').textContent=fmtNumber(Math.max(0,latest.requests-first.requests));
 $('mCache').textContent=fmtNumber(Math.round(computeCacheRate(latest)))+'%';
 $('mFpb').textContent=fmtNumber(Math.max(0,latest.fpbRequests-first.fpbRequests));
