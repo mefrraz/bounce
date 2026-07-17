@@ -362,7 +362,7 @@ func (h *Handler) GetCompStats(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetCompMVP(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	mvp, err := h.FPB.GetCompetitionMVP(id)
-	if err != nil { jsonError(w, err.Error(), "FETCH_ERROR", 502); return }
+	mvp, _ := h.FPB.GetCompetitionMVP(id)
+	if mvp == nil { mvp = []fpbapi.CompMVP{} }
 	writeJSON(w, 200, mvp)
 }
