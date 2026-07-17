@@ -9,9 +9,11 @@ services:
       - "443:443"
     environment:
       - BOUNCE_DATA_DIR=/data
-      - BOUNCE_TLS_DOMAIN=bounce.dribly.pt
+      - BOUNCE_TLS_DOMAIN=api.example.com       # ← replace with your domain
       - BOUNCE_TLS_CACHE=/data/autocert
+      - BOUNCE_TRUSTED_ORIGINS=example.com      # ← your sites (comma-separated)
       - BOUNCE_QUIET=true
+      # - DRIBLY_KEY=your-secret-key
     volumes:
       - bounce-data:/data
     healthcheck:

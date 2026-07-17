@@ -123,7 +123,7 @@ BOUNCE_QUIET=true ./bounce
 BOUNCE_TUI=true BOUNCE_DATA_DIR=/tmp/bdata ./bounce
 
 # HTTPS automático (requer domínio público)
-BOUNCE_TLS_DOMAIN=bounce.dribly.pt ./bounce
+BOUNCE_TLS_DOMAIN=api.example.com ./bounce
 
 # Rate limit alto para testes
 BOUNCE_RATE_LIMIT=5000 ./bounce

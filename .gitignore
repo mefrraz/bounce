@@ -26,3 +26,6 @@ data/
 
 # Test coverage
 coverage.out
+
+# Environment (contains secrets)
+.env

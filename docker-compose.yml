@@ -10,10 +10,13 @@ services:
       # - "443:443"  # uncomment for TLS
     environment:
       - BOUNCE_DATA_DIR=/data
-      # - BOUNCE_TLS_DOMAIN=bounce.dribly.pt      # uncomment for HTTPS
-      # - BOUNCE_TLS_CACHE=/data/autocert          # uncomment for HTTPS
-      # - BOUNCE_QUIET=true
+      # Uncomment and set your own values:
+      # - BOUNCE_TRUSTED_ORIGINS=example.com
       # - BOUNCE_RATE_LIMIT=500
+      # - BOUNCE_TLS_DOMAIN=api.example.com
+      # - BOUNCE_TLS_CACHE=/data/autocert
+      # - BOUNCE_QUIET=true
+      # - DRIBLY_KEY=your-secret-key
     volumes:
       - bounce-data:/data
     healthcheck:
