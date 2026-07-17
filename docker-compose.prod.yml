@@ -1,6 +1,6 @@
 services:
   bounce:
-    image: ghcr.io/mefrraz/bounce:latest
+    build: .
     container_name: bounce
     restart: unless-stopped
     ports:
