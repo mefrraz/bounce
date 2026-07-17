@@ -108,6 +108,7 @@ r.Get("/docs", docs.Handler)
 r.Get("/metrics", metricsHandler)
 r.Get("/api/metrics/history", metrics.HistoryHandler)
 r.Get("/api/metrics/history/simple", metrics.HistoryHandlerSimple)
+r.Post("/api/metrics/reset", metricsResetHandler)
 r.Get("/dashboard", metrics.DashboardHandler)
 r.Post("/api/batch", batchHandler)
 
@@ -228,6 +229,7 @@ func runTUI(port string, handler http.Handler) {
 	srv := &http.Server{Addr: ":" + port, Handler: handler}
 	go func() { srv.ListenAndServe() }()
 
+	go listenKeys()
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -253,7 +255,7 @@ func runTUI(port string, handler http.Handler) {
 			runtime.NumGoroutine(), rps*2, uptime)
 
 		// Footer
-		fmt.Printf("\n  \033[90mPress Ctrl+C to stop\033[0m\n\033[J")
+		fmt.Printf("\n  \033[90mPress Ctrl+C to stop  Press Ctrl+C to stop33[90mR=resetPress Ctrl+C to stop33[0m\033[0m\n\033[J")
 	}
 }
 
@@ -316,4 +318,21 @@ func fireWebhook(event string, data interface{}) {
 	if webhookURL == "" { return }
 	payload, _ := json.Marshal(map[string]interface{}{"event": event, "data": data, "time": time.Now().UTC()})
 	go func() { http.Post(webhookURL, "application/json", bytes.NewReader(payload)) }()
+}
+
+func metricsResetHandler(w http.ResponseWriter, _ *http.Request) {
+	metrics.ResetAll()
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"ok","message":"metrics reset"}`))
+}
+
+// ── TUI keyboard handler ──
+func listenKeys() {
+	var buf [1]byte
+	for {
+		os.Stdin.Read(buf[:])
+		if buf[0] == 'r' || buf[0] == 'R' {
+			metrics.ResetAll()
+		}
+	}
 }
