@@ -27,7 +27,7 @@ func ResetAll() {
 	historyMu.Lock()
 	history = nil
 	historyMu.Unlock()
-	if store != nil { store.PruneMetrics(time.Now()) }
+	if store != nil { store.PruneMetrics(time.Now().Add(24 * time.Hour)) }
 	RecordSnapshot()
 }
 
