@@ -35,6 +35,19 @@ func migrate(db *sql.DB) error {
 		ttl_min INTEGER NOT NULL,
 		created_at INTEGER NOT NULL DEFAULT (unixepoch())
 	)`)
+	if err != nil { return err }
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS metrics_snapshots (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		time INTEGER NOT NULL,
+		requests INTEGER NOT NULL DEFAULT 0,
+		cache_hits INTEGER NOT NULL DEFAULT 0,
+		cache_misses INTEGER NOT NULL DEFAULT 0,
+		fpb_requests INTEGER NOT NULL DEFAULT 0,
+		rate_limited INTEGER NOT NULL DEFAULT 0,
+		goroutines INTEGER NOT NULL DEFAULT 0
+	)`)
+	if err != nil { return err }
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_metrics_time ON metrics_snapshots(time)`)
 	return err
 }
 
@@ -69,6 +82,39 @@ func (s *Store) Invalidate(prefix string) error {
 }
 
 func (s *Store) Close() error { return s.db.Close() }
+
+func (s *Store) SaveMetric(ts time.Time, requests, cacheHits, cacheMisses, fpbRequests, rateLimited uint64, goroutines int) {
+	s.db.Exec(`INSERT INTO metrics_snapshots (time, requests, cache_hits, cache_misses, fpb_requests, rate_limited, goroutines) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		ts.Unix(), requests, cacheHits, cacheMisses, fpbRequests, rateLimited, goroutines)
+}
+
+type MetricRow struct {
+	Time        int64
+	Requests    int64
+	CacheHits   int64
+	CacheMisses int64
+	FPBRequests int64
+	RateLimited int64
+	Goroutines  int64
+}
+
+func (s *Store) LoadMetrics(since time.Time, limit int) []MetricRow {
+	rows, err := s.db.Query(`SELECT time, requests, cache_hits, cache_misses, fpb_requests, rate_limited, goroutines FROM metrics_snapshots WHERE time >= ? ORDER BY time ASC LIMIT ?`, since.Unix(), limit)
+	if err != nil { return nil }
+	defer rows.Close()
+	var result []MetricRow
+	for rows.Next() {
+		var r MetricRow
+		if err := rows.Scan(&r.Time, &r.Requests, &r.CacheHits, &r.CacheMisses, &r.FPBRequests, &r.RateLimited, &r.Goroutines); err == nil {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
+func (s *Store) PruneMetrics(before time.Time) {
+	s.db.Exec("DELETE FROM metrics_snapshots WHERE time < ?", before.Unix())
+}
 
 func CacheKey(parts ...string) string {
 	key := ""

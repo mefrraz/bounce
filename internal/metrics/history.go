@@ -1,9 +1,12 @@
 package metrics
 
 import (
+	"log"
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/mefrraz/bounce/internal/cache"
 )
 
 type Snapshot struct {
@@ -20,23 +23,44 @@ type Snapshot struct {
 var (
 	history   []Snapshot
 	historyMu sync.Mutex
+	store     *cache.Store
 )
+
+func SetStore(s *cache.Store) { store = s }
+
+func LoadHistory() {
+	if store == nil { return }
+	rows := store.LoadMetrics(time.Now().Add(-7*24*time.Hour), 60480)
+	historyMu.Lock()
+	defer historyMu.Unlock()
+	for _, r := range rows {
+		history = append(history, Snapshot{
+			Time: time.Unix(r.Time, 0), Requests: uint64(r.Requests),
+			CacheHits: uint64(r.CacheHits), CacheMisses: uint64(r.CacheMisses),
+			FPBRequests: uint64(r.FPBRequests), RateLimited: uint64(r.RateLimited),
+			Goroutines: int(r.Goroutines),
+		})
+	}
+	log.Printf("[metrics] loaded %d snapshots from db", len(history))
+}
 
 func RecordSnapshot() {
 	historyMu.Lock()
 	defer historyMu.Unlock()
-	history = append(history, Snapshot{
-		Time:        time.Now(),
-		Requests:    RequestsTotal,
-		CacheHits:   CacheHitsTotal,
-		CacheMisses: CacheMissesTotal,
-		FPBRequests: FPBRequestsTotal,
-		RateLimited: RateLimitedTotal,
-		Goroutines:  runtime.NumGoroutine(),
-	})
-	// Keep only last 7 days (6 snapshots/min × 60 × 24 × 7 = 60480)
+	s := Snapshot{
+		Time: time.Now(), Requests: RequestsTotal, CacheHits: CacheHitsTotal,
+		CacheMisses: CacheMissesTotal, FPBRequests: FPBRequestsTotal,
+		RateLimited: RateLimitedTotal, Goroutines: runtime.NumGoroutine(),
+	}
+	history = append(history, s)
 	if len(history) > 60480 {
-		history = history[len(history)-10080:]
+		history = history[len(history)-60480:]
+	}
+	if store != nil {
+		store.SaveMetric(s.Time, s.Requests, s.CacheHits, s.CacheMisses, s.FPBRequests, s.RateLimited, s.Goroutines)
+	}
+	if len(history)%1000 == 0 && store != nil {
+		store.PruneMetrics(time.Now().Add(-7 * 24 * time.Hour))
 	}
 }
 

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"log"
 	"log/slog"
 	"net/http"
@@ -39,6 +39,9 @@ func main() {
 	store, err := cache.NewStore(filepath.Join(dataDir, "bounce.db"))
 	if err != nil { log.Fatalf("cache: %v", err) }
 	defer store.Close()
+
+	metrics.SetStore(store)
+	metrics.LoadHistory()
 
 	client := httpclient.New()
 	defer client.Stop()
@@ -119,18 +122,20 @@ var apiKey = ""
 func init() { startTime = time.Now(); apiKey = os.Getenv("BOUNCE_API_KEY") }
 
 func metricsHandler(w http.ResponseWriter, _ *http.Request) {
-	uptime := int(time.Since(startTime).Seconds())
-	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprintf(w, "# HELP bounce_uptime_seconds Uptime in seconds\n# TYPE bounce_uptime_seconds gauge\nbounce_uptime_seconds %d\n", uptime)
+	w.Header().Set("Content-Type", "application/json")
 	var m runtime.MemStats
-runtime.ReadMemStats(&m)
-	fmt.Fprintf(w, "# HELP bounce_goroutines Number of goroutines\n# TYPE bounce_goroutines gauge\nbounce_goroutines %d\n", runtime.NumGoroutine())
-	fmt.Fprintf(w, "# HELP bounce_memory_bytes Allocated memory\n# TYPE bounce_memory_bytes gauge\nbounce_memory_bytes %d\n", m.Alloc)
-	fmt.Fprintf(w, "# HELP bounce_requests_total Total HTTP requests\n# TYPE bounce_requests_total counter\nbounce_requests_total %d\n", metrics.RequestsTotal)
-	fmt.Fprintf(w, "# HELP bounce_cache_hits_total Cache hits\n# TYPE bounce_cache_hits_total counter\nbounce_cache_hits_total %d\n", metrics.CacheHitsTotal)
-	fmt.Fprintf(w, "# HELP bounce_cache_misses_total Cache misses\n# TYPE bounce_cache_misses_total counter\nbounce_cache_misses_total %d\n", metrics.CacheMissesTotal)
-	fmt.Fprintf(w, "# HELP bounce_fpb_requests_total Requests to FPB\n# TYPE bounce_fpb_requests_total counter\nbounce_fpb_requests_total %d\n", metrics.FPBRequestsTotal)
-	fmt.Fprintf(w, "# HELP bounce_rate_limited_total Rate-limited requests\n# TYPE bounce_rate_limited_total counter\nbounce_rate_limited_total %d\n", metrics.RateLimitedTotal)
+	runtime.ReadMemStats(&m)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"version":         apihandler.Version,
+		"uptime_seconds":  int(time.Since(startTime).Seconds()),
+		"goroutines":      runtime.NumGoroutine(),
+		"memory_alloc_mb": float64(m.Alloc) / 1024 / 1024,
+		"requests":        metrics.RequestsTotal,
+		"cache_hits":      metrics.CacheHitsTotal,
+		"cache_misses":    metrics.CacheMissesTotal,
+		"fpb_requests":    metrics.FPBRequestsTotal,
+		"rate_limited":    metrics.RateLimitedTotal,
+	})
 }
 
 func metricsBroadcaster() {
