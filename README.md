@@ -3,92 +3,83 @@
   <p align="center"><strong>Smart Sports Data Proxy</strong> para basquetebol português.<br>Dados da FPB e TugaBasket, cache inteligente, dashboard em tempo real.</p>
 </p>
 
-> **v7.4.18** — Dashboard ao vivo · TUI mode · Métricas persistentes · 20+ endpoints
+> **v7.4.19** — Dashboard ao vivo · TUI mode · Métricas persistentes · 20+ endpoints
 
 ---
+n## 🎛️ Modos de execução
 
-## 🚀 Self-Hosting — Passo a Passo
+O Bounce tem dois modos. Escolhe o que preferires:
 
-### Pré-requisitos
-- **Go 1.24+** ou **Docker**
-- ~50MB de espaço em disco
-- Raspberry Pi, VPS, ou PC local
-
-### Passo 1: Clonar o repositório
-```bash
-git clone https://github.com/mefrraz/bounce.git
-cd bounce
-```
-
-### Passo 2: Build
-```bash
-# Binário nativo
-go build -o bounce ./cmd/server
-
-# Ou Docker (multi-arch: amd64 + arm64)
-docker build -t bounce .
-```
-
-### Passo 3: Criar diretório de dados
-```bash
-mkdir -p ./data
-```
-
-### Passo 4: Escolher o modo e correr
-
-#### Modo 1 — Background (servidor web silencioso)
+### Modo 1 — Background (servidor web)
 ```bash
 BOUNCE_DATA_DIR=./data ./bounce &
-# Abre http://localhost:3001/dashboard
 ```
+Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
 
-#### Modo 2 — TUI (terminal dashboard ao vivo)
+### Modo 2 — TUI (terminal dashboard)
 ```bash
 BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
 ```
-Mostra métricas em tempo real no terminal:
-- Requests, Cache %, FPB Reqs, Rate Limited
-- Últimas 8 requests em log ao vivo
-- `r` + Enter = reset de todas as métricas
+Dashboard ao vivo diretamente no terminal:
+- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
+- Log ao vivo das últimas 8 requests
+- `r` + Enter = reset total de métricas e base de dados
 - `Ctrl+C` = sair
 
-### Passo 5: Verificar
-```bash
-curl http://localhost:3001/health
-# {"status":"ok","version":"v7.4.18","db_ok":true,"uptime":"5s"}
-```
 
----
+## 📦 Instalação
 
-## 🐳 Docker
+### Opção 1 — Docker (recomendado)
 ```bash
-# Pull da imagem pública
 docker pull ghcr.io/mefrraz/bounce:latest
-
-# Correr
 docker run -d --name bounce --restart unless-stopped \
   -p 3001:3001 -v bounce-data:/data \
   ghcr.io/mefrraz/bounce:latest
-
-# Ver logs
-docker logs bounce
 ```
 
----
-
-## 🖥️ Raspberry Pi
+### Opção 2 — Binário pre-compilado
+Faz download do binário para o teu SO em [Releases](https://github.com/mefrraz/bounce/releases):
 ```bash
-# Compilar no PC para o Pi
-GOOS=linux GOARCH=arm64 go build -o bounce ./cmd/server
+chmod +x bounce-linux-amd64
+BOUNCE_DATA_DIR=./data ./bounce-linux-amd64 &
+```
 
-# Enviar via SCP
-scp bounce piserver@192.168.1.200:~/
+### Opção 3 — Go (from source)
+```bash
+git clone https://github.com/mefrraz/bounce.git
+cd bounce
+go build -o bounce ./cmd/server
+BOUNCE_DATA_DIR=./data ./bounce &
+```
 
-# No Pi: correr em background
-BOUNCE_DATA_DIR=/tmp/bdata ./bounce &
+### Verificar
+```bash
+curl http://localhost:3001/health
+# {"status":"ok","version":"v7.4.19","db_ok":true,"uptime":"5s"}
+# Abre http://localhost:3001/dashboard
 ```
 
 ---
+n## 🎛️ Modos de execução
+
+O Bounce tem dois modos. Escolhe o que preferires:
+
+### Modo 1 — Background (servidor web)
+```bash
+BOUNCE_DATA_DIR=./data ./bounce &
+```
+Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
+
+### Modo 2 — TUI (terminal dashboard)
+```bash
+BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
+```
+Dashboard ao vivo diretamente no terminal:
+- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
+- Log ao vivo das últimas 8 requests
+- `r` + Enter = reset total de métricas e base de dados
+- `Ctrl+C` = sair
+
 
 ## 🌍 Web Interface
 
@@ -100,6 +91,26 @@ BOUNCE_DATA_DIR=/tmp/bdata ./bounce &
 | **Metrics** | `/metrics` | JSON com todas as métricas do servidor |
 
 ---
+n## 🎛️ Modos de execução
+
+O Bounce tem dois modos. Escolhe o que preferires:
+
+### Modo 1 — Background (servidor web)
+```bash
+BOUNCE_DATA_DIR=./data ./bounce &
+```
+Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
+
+### Modo 2 — TUI (terminal dashboard)
+```bash
+BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
+```
+Dashboard ao vivo diretamente no terminal:
+- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
+- Log ao vivo das últimas 8 requests
+- `r` + Enter = reset total de métricas e base de dados
+- `Ctrl+C` = sair
+
 
 ## ⚙️ Environment Variables
 
@@ -137,6 +148,26 @@ BOUNCE_LOG_LEVEL=debug ./bounce
 ```
 
 ---
+n## 🎛️ Modos de execução
+
+O Bounce tem dois modos. Escolhe o que preferires:
+
+### Modo 1 — Background (servidor web)
+```bash
+BOUNCE_DATA_DIR=./data ./bounce &
+```
+Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
+
+### Modo 2 — TUI (terminal dashboard)
+```bash
+BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
+```
+Dashboard ao vivo diretamente no terminal:
+- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
+- Log ao vivo das últimas 8 requests
+- `r` + Enter = reset total de métricas e base de dados
+- `Ctrl+C` = sair
+
 
 ## 🏠 Self-Hosting Guide
 
@@ -174,6 +205,26 @@ curl -H "X-Dribly-Key: a-minha-chave-secreta" http://meu-bounce:3001/api/games?c
 | Sem bypass | Visitantes públicos | 100 req/min por IP |
 
 ---
+n## 🎛️ Modos de execução
+
+O Bounce tem dois modos. Escolhe o que preferires:
+
+### Modo 1 — Background (servidor web)
+```bash
+BOUNCE_DATA_DIR=./data ./bounce &
+```
+Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
+
+### Modo 2 — TUI (terminal dashboard)
+```bash
+BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
+```
+Dashboard ao vivo diretamente no terminal:
+- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
+- Log ao vivo das últimas 8 requests
+- `r` + Enter = reset total de métricas e base de dados
+- `Ctrl+C` = sair
+
 
 ## 🛠️ Stack
 
@@ -188,6 +239,26 @@ curl -H "X-Dribly-Key: a-minha-chave-secreta" http://meu-bounce:3001/api/games?c
 | CI/CD | GitHub Actions (multi-arch) |
 
 ---
+n## 🎛️ Modos de execução
+
+O Bounce tem dois modos. Escolhe o que preferires:
+
+### Modo 1 — Background (servidor web)
+```bash
+BOUNCE_DATA_DIR=./data ./bounce &
+```
+Arranca silenciosamente em background. Acede ao dashboard em `http://localhost:3001/dashboard`.
+
+### Modo 2 — TUI (terminal dashboard)
+```bash
+BOUNCE_TUI=true BOUNCE_DATA_DIR=./data ./bounce
+```
+Dashboard ao vivo diretamente no terminal:
+- Métricas: Requests, Cache %, FPB Reqs, Rate Limited
+- Log ao vivo das últimas 8 requests
+- `r` + Enter = reset total de métricas e base de dados
+- `Ctrl+C` = sair
+
 
 ## 📄 Licença
 
