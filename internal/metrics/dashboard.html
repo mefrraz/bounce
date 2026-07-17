@@ -333,7 +333,7 @@ if(snapshots.length===0){
 return
 }
 var latest=snapshots[snapshots.length-1],first=snapshots[0],prev=snapshots.length>1?snapshots[snapshots.length-2]:null;
-$('mRequests').textContent=fmtNumber(Math.max(0,latest.requests-first.requests));
+$('mRequests').textContent=fmtNumber(latest.requests);
 $('mCache').textContent=fmtNumber(Math.round(computeCacheRate(latest)))+'%';
 $('mFpb').textContent=fmtNumber(Math.max(0,latest.fpbRequests-first.fpbRequests));
 $('mLimited').textContent=fmtNumber(Math.max(0,latest.rateLimited-first.rateLimited));
