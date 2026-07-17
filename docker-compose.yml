@@ -6,9 +6,14 @@ services:
     restart: unless-stopped
     ports:
       - "3001:3001"
+      # - "80:80"    # uncomment for TLS
+      # - "443:443"  # uncomment for TLS
     environment:
-      - BOUNCE_PORT=3001
       - BOUNCE_DATA_DIR=/data
+      # - BOUNCE_TLS_DOMAIN=bounce.dribly.pt      # uncomment for HTTPS
+      # - BOUNCE_TLS_CACHE=/data/autocert          # uncomment for HTTPS
+      # - BOUNCE_QUIET=true
+      # - BOUNCE_RATE_LIMIT=500
     volumes:
       - bounce-data:/data
     healthcheck:

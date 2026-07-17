@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   bounce:
     image: ghcr.io/mefrraz/bounce:latest
@@ -7,10 +5,13 @@ services:
     restart: unless-stopped
     ports:
       - "3001:3001"
+      - "80:80"
+      - "443:443"
     environment:
-      - BOUNCE_PORT=3001
       - BOUNCE_DATA_DIR=/data
-      - BOUNCE_VAPID_EMAIL=me.frraz@gmail.com
+      - BOUNCE_TLS_DOMAIN=bounce.dribly.pt
+      - BOUNCE_TLS_CACHE=/data/autocert
+      - BOUNCE_QUIET=true
     volumes:
       - bounce-data:/data
     healthcheck:
