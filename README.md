@@ -214,18 +214,6 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ---
 
-## 📦 Client SDK
-
-```bash
-npm install @dribly/bounce-client
-```
-
-```typescript
-import BounceClient from '@dribly/bounce-client'
-const bounce = new BounceClient('http://localhost:3001')
-const games = await bounce.games({ club: 119, season: '2025/2026' })
-```
-
 ---
 
 ## 🧪 Testes
