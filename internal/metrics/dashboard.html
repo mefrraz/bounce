@@ -339,10 +339,10 @@ $('mFpb').textContent=fmtNumber(Math.max(0,latest.fpbRequests-first.fpbRequests)
 $('mLimited').textContent=fmtNumber(Math.max(0,latest.rateLimited-first.rateLimited));
 
 function subText(el,curr,prevVal,unit){if(snapshots.length<2){el.textContent='primeiro snapshot';return}var diff=curr-prevVal;if(diff===0){el.innerHTML='— sem alteração';return}var cls=diff>0?'trend-up':'trend-down',arrow=diff>0?'▲':'▼';el.innerHTML='<span class="'+cls+'">'+arrow+' '+Math.abs(diff).toLocaleString('pt-PT')+(unit||'')+'</span>'}
-subText($('mRequestsSub'),latest.requests,prev.requests);
+subText($('mRequestsSub'),latest.requests,prev?prev.requests:0);
 if(prev)subText($('mCacheSub'),Math.round(computeCacheRate(latest)),Math.round(computeCacheRate(prev)),'%');else $('mCacheSub').textContent='primeiro snapshot';
-subText($('mFpbSub'),latest.fpbRequests,prev.fpbRequests);
-subText($('mLimitedSub'),latest.rateLimited,prev.rateLimited)
+subText($('mFpbSub'),latest.fpbRequests,prev?prev.fpbRequests:0);
+subText($('mLimitedSub'),latest.rateLimited,prev?prev.rateLimited:0)
 }
 
 function renderCharts(snapshots){
@@ -488,7 +488,7 @@ $('mGoroutines').textContent=fmtNumber(d.goroutines||0);
 lastWs={requests:r,cacheHits:ch,cacheMisses:cm,fpb:fp,limited:rl};
 $('lastUpdate').textContent='Última atualização: '+fmtTime(new Date())
 }catch(ex){}};
-ws.onclose=function(){setLive(false);if(refreshMode==='live')setTimeout(connectWS,3000)};ws.onerror=function(){ws.close()}
+ws.onerror=function(){ws=null};ws.onclose=function(){ws=null}
 }catch(ex){}
 }
 
