@@ -261,7 +261,7 @@ func runTUI(port string, handler http.Handler) {
 
 		// Recent requests
 		for i := 0; i < 20; i++ {
-			idx := (tuiReqIdx - 1 - i + 8) % 8
+			idx := (tuiReqIdx - 1 - i + 24) % 24
 			if tuiReqLog[idx] != "" {
 				fmt.Printf("  %s\n", tuiReqLog[idx])
 			}
