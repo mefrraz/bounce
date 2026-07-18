@@ -296,3 +296,14 @@ func NormalizeTeam(rawName, logoURL string) (string, string) {
 	}
 	return rawName, logoURL
 }
+
+// StartDailyRefresh runs a background goroutine that refreshes clubs from FPB every 24h.
+func StartDailyRefresh() {
+	go func() {
+		for {
+			time.Sleep(24 * time.Hour)
+			log.Printf("[clubs] daily refresh starting")
+			RefreshFromFPB()
+		}
+	}()
+}

@@ -55,6 +55,7 @@ func main() {
 		slog.Warn("clubs init: "+err.Error()+" — seeding from embedded data")
 		clubs.RefreshFromFPB()
 	}
+	clubs.StartDailyRefresh()
 
 	rateLimit := 100
 	if rlEnv := os.Getenv("BOUNCE_RATE_LIMIT"); rlEnv != "" {
