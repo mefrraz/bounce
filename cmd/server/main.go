@@ -204,6 +204,7 @@ func metricsHandler(w http.ResponseWriter, _ *http.Request) {
 		"cache_misses":    metrics.CacheMissesTotal,
 		"fpb_requests":    metrics.FPBRequestsTotal,
 		"rate_limited":    metrics.RateLimitedTotal,
+		"reqs_per_sec":    metrics.ReqRate(),
 	})
 }
 

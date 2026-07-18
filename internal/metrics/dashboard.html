@@ -321,13 +321,14 @@ requests:Number(item.requests||item.Requests||0),
 cacheHits:Number(item.cache_hits||item.CacheHits||0),
 cacheMisses:Number(item.cache_misses||item.CacheMisses||0),
 fpbRequests:Number(item.fpb_requests||item.FPBRequests||0),
-rateLimited:Number(item.rate_limited||item.RateLimited||0)
+rateLimited:Number(item.rate_limited||item.RateLimited||0),
+goroutines:Number(item.goroutines||item.Goroutines||0)
 }})
 }
 
 function computeCacheRate(snap){var total=snap.cacheHits+snap.cacheMisses;if(total<=0)return 0;return(snap.cacheHits/total)*100}
 
-function renderCards(snapshots){
+function renderCards(snapshots,liveData){
 if(snapshots.length===0){
 ['mRequests','mCache','mFpb','mLimited'].forEach(function(k){$(k).textContent='–'});
 return
@@ -343,6 +344,18 @@ subText($('mRequestsSub'),latest.requests,prev?prev.requests:0);
 if(prev)subText($('mCacheSub'),Math.round(computeCacheRate(latest)),Math.round(computeCacheRate(prev)),'%');else $('mCacheSub').textContent='primeiro snapshot';
 subText($('mFpbSub'),latest.fpbRequests,prev?prev.fpbRequests:0);
 subText($('mLimitedSub'),latest.rateLimited,prev?prev.rateLimited:0)
+
+// Second grid: live data from /metrics
+if(liveData){
+$('mUptime').textContent=fmtUptime(liveData.uptime_seconds||0);
+$('mGoroutines').textContent=fmtNumber(liveData.goroutines||0);
+$('mCacheMisses').textContent=fmtNumber(liveData.cache_misses||0);
+$('mReqsSec').textContent=fmtNumber(Math.round(liveData.reqs_per_sec||0))+'/s';
+$('mUptimeSub').textContent='desde o arranque';
+$('mGoroutinesSub').textContent='runtime Go';
+$('mCacheMissesSub').textContent='falhas de cache';
+$('mReqsSecSub').textContent='débito actual'
+}
 }
 
 function renderCharts(snapshots){
@@ -422,14 +435,25 @@ drawLineChart(canvases.total,cumSeries,'#ff6b35',{xLabels:xLabels});
 $('chartTotalCurrent').textContent=last?fmtNumber(last.requests):'–'
 }
 
+async function fetchLive(){
+try{
+var res=await fetch('/metrics',{cache:'no-store'});
+if(!res.ok)throw new Error('HTTP '+res.status);
+return await res.json()
+}catch(err){
+console.error('Bounce live fetch error:',err);
+return null
+}
+}
+
 async function fetchMetrics(){
 if(isFetching)return;isFetching=true;
 try{
 var res=await fetch('/api/metrics/history/simple?minutes='+(currentMinutes>=10080?10080:currentMinutes+1),{cache:'no-store'});
 if(!res.ok)throw new Error('HTTP '+res.status);
-var payload=await res.json(),snapshots=normalizeSnapshots(payload);
+var payload=await res.json(),snapshots=normalizeSnapshots(payload),liveData=await fetchLive();
 lastSnapshots=snapshots;
-try{renderCards(snapshots);renderCharts(snapshots)}catch(e){console.error('render error:',e)}
+try{renderCards(snapshots,liveData);renderCharts(snapshots)}catch(e){console.error('render error:',e)}
 }catch(err){
 setLive(false);console.error('Bounce dashboard fetch error:',err)
 }finally{

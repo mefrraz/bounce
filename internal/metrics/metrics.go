@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -11,6 +12,11 @@ var (
 	CacheMissesTotal uint64
 	FPBRequestsTotal uint64
 	RateLimitedTotal uint64
+
+	rateLastReq   uint64
+	rateLastTime  time.Time
+	rateMu        sync.Mutex
+	rateLastValue float64
 )
 
 func IncRequests()    { atomic.AddUint64(&RequestsTotal, 1) }
@@ -24,6 +30,11 @@ func ResetAll() {
 	atomic.StoreUint64(&CacheMissesTotal, 0)
 	atomic.StoreUint64(&FPBRequestsTotal, 0)
 	atomic.StoreUint64(&RateLimitedTotal, 0)
+	rateMu.Lock()
+	rateLastReq = 0
+	rateLastTime = time.Time{}
+	rateLastValue = 0
+	rateMu.Unlock()
 	historyMu.Lock()
 	history = nil
 	historyMu.Unlock()
@@ -32,6 +43,8 @@ func ResetAll() {
 }
 
 func StartRecording() {
+	rateLastTime = time.Now()
+	rateLastReq = RequestsTotal
 	RecordSnapshot() // baseline at t=0 captures pre-warm activity
 	go func() {
 		for {
@@ -39,4 +52,27 @@ func StartRecording() {
 			RecordSnapshot()
 		}
 	}()
+}
+
+// ReqRate returns the current requests per second using a smoothed exponential moving average.
+func ReqRate() float64 {
+	now := time.Now()
+	current := atomic.LoadUint64(&RequestsTotal)
+	rateMu.Lock()
+	defer rateMu.Unlock()
+	if !rateLastTime.IsZero() {
+		elapsed := now.Sub(rateLastTime).Seconds()
+		if elapsed > 0 {
+			instant := float64(current-rateLastReq) / elapsed
+			if instant < 0 { instant = 0 }
+			if rateLastValue == 0 {
+				rateLastValue = instant
+			} else {
+				rateLastValue = 0.7*instant + 0.3*rateLastValue
+			}
+		}
+	}
+	rateLastReq = current
+	rateLastTime = now
+	return rateLastValue
 }

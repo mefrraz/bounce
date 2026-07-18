@@ -17,7 +17,7 @@ type Snapshot struct {
 	FPBRequests uint64    `json:"fpb_requests"`
 	RateLimited uint64    `json:"rate_limited"`
 	MemAlloc    uint64    `json:"-"`
-	Goroutines  int       `json:"-"`
+	Goroutines  int       `json:"goroutines"`
 }
 
 var (
