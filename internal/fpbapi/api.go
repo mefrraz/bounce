@@ -54,7 +54,7 @@ func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 }
 
 func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]models.Game, error) {
-	key := cache.CacheKey("games", "club", clubID, season)
+	key := cache.CacheKey("games", "club", clubID, season, category, gender)
 	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var c []models.Game
 		if err := json.Unmarshal(raw, &c); err == nil { return c, nil }
@@ -64,6 +64,8 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	p.Set("action", "get_results")
 	p.Set("epoca", season)
 	p.Set("clube", clubID)
+	if category != "" { p.Set("escalao", category) }
+	if gender != "" { p.Set("genero", gender) }
 	metrics.IncFPBRequest()
 	body, err := f.http.Get(fpbBase + "/wp-admin/admin-ajax.php?" + p.Encode())
 	if err != nil { return nil, err }
@@ -87,15 +89,18 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	return all, nil
 }
 
-func (f *FPBAPI) GetCompetitions() ([]models.Competition, error) {
-	key := cache.CacheKey("competitions")
+func (f *FPBAPI) GetCompetitions(category, gender string) ([]models.Competition, error) {
+	if category == "" { category = "Senior" }
+	if gender == "" { gender = "masculino" }
+	key := cache.CacheKey("competitions", category, gender)
 	if raw, ok := f.cache.Get(key); ok { metrics.IncCacheHit()
 		var c []models.Competition
 		if err := json.Unmarshal(raw, &c); err == nil { return c, nil }
 	}
 	metrics.IncCacheMiss()
 	metrics.IncFPBRequest()
-	body, err := f.http.Post(fpbBase+"/wp-admin/admin-ajax.php", "action=get_competicoes&epoca="+cache.CurrentSeason()+"&escalao=Senior&genero=masculino&radio=true")
+	body, err := f.http.Post(fpbBase+"/wp-admin/admin-ajax.php",
+		"action=get_competicoes&epoca="+cache.CurrentSeason()+"&escalao="+url.QueryEscape(category)+"&genero="+url.QueryEscape(gender)+"&radio=true")
 	var comps []models.Competition
 	if err == nil {
 		re := regexp.MustCompile(`data-id="(\d+)"[^>]*>\s*<span[^>]*>([^<]+)</span>`)

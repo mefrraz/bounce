@@ -155,7 +155,8 @@ func (h *Handler) GetGame(w http.ResponseWriter, r *http.Request) {
 // @Router       /api/competitions [get]
 
 func (h *Handler) GetCompetitions(w http.ResponseWriter, r *http.Request) {
-	comps, err := h.FPB.GetCompetitions()
+	q := r.URL.Query()
+	comps, err := h.FPB.GetCompetitions(q.Get("category"), q.Get("gender"))
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 	return
@@ -317,7 +318,12 @@ func (h *Handler) GetGamesPaginated(w http.ResponseWriter, r *http.Request) {
 	season := q.Get("season")
 	if season == "" { season = cache.CurrentSeason() }
 
-	games, err := h.FPB.GetGamesByClub(club, season, "Senior", "masculino")
+	category := q.Get("category")
+	if category == "" { category = "Senior" }
+	gender := q.Get("gender")
+	if gender == "" { gender = "masculino" }
+
+	games, err := h.FPB.GetGamesByClub(club, season, category, gender)
 	if err != nil { jsonError(w, err.Error(), "FETCH_ERROR", 502); return }
 
 	total := len(games)

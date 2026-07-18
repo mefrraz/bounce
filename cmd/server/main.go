@@ -69,7 +69,7 @@ bouncedb = store
 
 	sched := scheduler.New(
 		func(id string) (*models.Game, error) { d, e := fpb.GetGame(id); if e != nil { return nil, e }; return &d.Game, nil },
-		func() ([]models.Game, error) { comps, _ := fpb.GetCompetitions(); var t []models.Game; for _, c := range comps { g, _ := fpb.GetGamesByCompetition(c.ID, cache.CurrentSeason()); for _, gm := range g { if cache.IsToday(gm.Date) { t = append(t, gm) } } }; slog.Info("daily refresh", "games_today", len(t)); return t, nil },
+		func() ([]models.Game, error) { comps, _ := fpb.GetCompetitions("", ""); var t []models.Game; for _, c := range comps { g, _ := fpb.GetGamesByCompetition(c.ID, cache.CurrentSeason()); for _, gm := range g { if cache.IsToday(gm.Date) { t = append(t, gm) } } }; slog.Info("daily refresh", "games_today", len(t)); return t, nil },
 		func(g models.Game) {
 			et := "score_update"
 			if g.Status == "FINALIZADO" { et = "game_finished" }
@@ -126,12 +126,12 @@ ws.RegisterDashboardRoute(r)
 	go metricsBroadcaster()
 
 	if tuiMode {
-		go func() { fpb.GetCompetitions(); fpb.GetStandings("10902") }()
+		go func() { fpb.GetCompetitions("", ""); fpb.GetStandings("10902") }()
 		runTUI(port, r)
 		return
 	}
 
-	go func() { fpb.GetCompetitions(); fpb.GetStandings("10902"); slog.Info("pre-warm complete") }()
+	go func() { fpb.GetCompetitions("", ""); fpb.GetStandings("10902"); slog.Info("pre-warm complete") }()
 	srv := &http.Server{Addr: ":" + port, Handler: r}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
