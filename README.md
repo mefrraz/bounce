@@ -3,7 +3,7 @@
   <p align="center"><strong>Smart Sports Data Proxy</strong> para basquetebol português.<br>Dados da FPB e TugaBasket, cache inteligente, dashboard em tempo real.</p>
 </p>
 
-> **v7.5.8** — Dashboard ao vivo · TUI mode · Docker · binário · 20+ endpoints · [bounce.dribly.pt](https://bounce.dribly.pt)
+> **v7.7.0** — Dashboard ao vivo · TUI mode · Docker · binário · 20+ endpoints · [bounce.dribly.pt](https://bounce.dribly.pt)
 
 ![build](https://img.shields.io/github/actions/workflow/status/mefrraz/bounce/ci.yml?branch=main)
 ![version](https://img.shields.io/github/v/tag/mefrraz/bounce?label=version)
