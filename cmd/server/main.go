@@ -27,6 +27,7 @@ _ "github.com/andybalholm/brotli"
 
 	apihandler "github.com/mefrraz/bounce/internal/api"
 	"github.com/mefrraz/bounce/internal/cache"
+	"github.com/mefrraz/bounce/internal/clubs"
 	"github.com/mefrraz/bounce/internal/docs"
 	"github.com/mefrraz/bounce/internal/fpbapi"
 	"github.com/mefrraz/bounce/internal/httpclient"
@@ -115,6 +116,7 @@ r.Get("/api/metrics/history/simple", metrics.HistoryHandlerSimple)
 r.Post("/api/metrics/reset", metricsResetHandler)
 r.Get("/dashboard", metrics.DashboardHandler)
 r.Post("/api/batch", batchHandler)
+r.Get("/api/clubs", clubsHandler)
 
 	apihandler.NewHandler(fpb).RegisterRoutes(r)
 	hub.RegisterRoutes(r)
@@ -337,6 +339,11 @@ func metricsResetHandler(w http.ResponseWriter, _ *http.Request) {
 	metrics.ResetAll()
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"status":"ok","message":"metrics reset"}`))
+}
+
+func clubsHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(clubs.All())
 }
 
 // ── TUI keyboard handler ──

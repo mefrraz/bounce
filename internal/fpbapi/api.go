@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mefrraz/bounce/internal/cache"
+	"github.com/mefrraz/bounce/internal/clubs"
 	"github.com/mefrraz/bounce/internal/httpclient"
 	"github.com/mefrraz/bounce/internal/metrics"
 	"github.com/mefrraz/bounce/internal/models"
@@ -23,6 +24,19 @@ type FPBAPI struct {
 }
 
 func New(c *httpclient.Client, s *cache.Store) *FPBAPI { return &FPBAPI{http: c, cache: s} }
+
+// normalizeGames replaces raw FPB team names/logos with canonical club data where possible.
+func normalizeGames(games []models.Game) {
+	for i := range games {
+		g := &games[i]
+		homeName, homeLogo := clubs.NormalizeTeam(g.HomeTeam, g.HomeLogo)
+		awayName, awayLogo := clubs.NormalizeTeam(g.AwayTeam, g.AwayLogo)
+		g.HomeTeam = homeName
+		g.HomeLogo = homeLogo
+		g.AwayTeam = awayName
+		g.AwayLogo = awayLogo
+	}
+}
 
 func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 	key := cache.CacheKey("game", internalID)
@@ -78,6 +92,7 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 		for _, item := range v { if s, ok := item.(string); ok { h.WriteString(s) } }
 	}
 	all := scraper.ScrapeGames(h.String(), "FINALIZADO")
+	normalizeGames(all)
 
 	hasToday := false
 	for _, g := range all {
@@ -268,6 +283,7 @@ func (f *FPBAPI) GetGamesByCompetition(compID, season string) ([]models.Game, er
 		for _, item := range v { if s, ok := item.(string); ok { h.WriteString(s) } }
 	}
 	g := scraper.ScrapeGames(h.String(), "FINALIZADO")
+	normalizeGames(g)
 	raw2, _ := json.Marshal(g)
 	f.cache.Set(key, raw2, cache.TTLStandings)
 	return g, nil
