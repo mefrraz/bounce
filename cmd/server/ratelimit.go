@@ -47,8 +47,11 @@ func (rl *rateLimiter) cleanup() {
 }
 
 func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
+	noise := map[string]bool{"/metrics": true, "/health": true, "/dashboard": true, "/docs": true, "/test": true, "/favicon.ico": true}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		metrics.IncRequests()
+		if !noise[r.URL.Path] {
+			metrics.IncRequests()
+		}
 		if r.Header.Get("X-Dribly-Key") == os.Getenv("DRIBLY_KEY") && os.Getenv("DRIBLY_KEY") != "" {
 			next.ServeHTTP(w, r); return
 		}
