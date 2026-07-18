@@ -10,13 +10,17 @@ import (
 var clubsJSON []byte
 
 type Club struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	ShortName   string `json:"short_name"`
-	SearchName  string `json:"search_name"`
-	LogoURL     string `json:"logo_url"`
-	LogoPattern string `json:"-"` // computed: last path segment of logo URL
+	ID            int     `json:"id"`
+	Name          string  `json:"name"`
+	Slug          string  `json:"slug"`
+	ShortName     string  `json:"short_name"`
+	SearchName    string  `json:"search_name"`
+	LogoURL       string  `json:"logo_url"`
+	PrimaryColor  string  `json:"primary_color,omitempty"`
+	LogoSecondary string  `json:"logo_secondary,omitempty"`
+	Priority      int     `json:"priority,omitempty"`
+	EloRating     float64 `json:"elo_rating,omitempty"`
+	LogoPattern   string  `json:"-"` // computed: last path segment of logo URL
 }
 
 var clubs []Club
