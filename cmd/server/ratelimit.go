@@ -52,7 +52,7 @@ func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 		if !noise[r.URL.Path] {
 			metrics.IncRequests()
 		}
-		if r.Header.Get("X-Dribly-Key") == os.Getenv("DRIBLY_KEY") && os.Getenv("DRIBLY_KEY") != "" {
+		if r.Header.Get("X-Bounce-Key") == os.Getenv("BOUNCE_API_KEY") && os.Getenv("BOUNCE_API_KEY") != "" {
 			next.ServeHTTP(w, r); return
 		}
 		if isTrustedOrigin(r) {
