@@ -77,8 +77,12 @@ func rebuildIndex() {
 
 func saveToDisk() error {
 	clubsMu.RLock()
+	defer clubsMu.RUnlock()
+	return saveToDiskLocked()
+}
+
+func saveToDiskLocked() error {
 	data, _ := json.MarshalIndent(clubsData, "", "  ")
-	clubsMu.RUnlock()
 	path := filepath.Join(dataDir, clubsFile)
 	return os.WriteFile(path, data, 0644)
 }
@@ -154,7 +158,7 @@ func RefreshFromFPB() (updated int, added int, errs int) {
 	}
 
 	rebuildIndex()
-	if err := saveToDisk(); err != nil {
+	if err := saveToDiskLocked(); err != nil {
 		log.Printf("[clubs] save error: %v", err)
 		errs++
 	}
@@ -242,7 +246,7 @@ func UpdateClub(id int, name, shortName, primaryColor, logoURL string, priority 
 			}
 			clubsData[i].Priority = priority
 			rebuildIndex()
-			return saveToDisk()
+			return saveToDiskLocked()
 		}
 	}
 	return fmt.Errorf("club %d not found", id)
