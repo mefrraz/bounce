@@ -47,7 +47,7 @@ func (rl *rateLimiter) cleanup() {
 }
 
 func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
-	noise := map[string]bool{"/metrics": true, "/health": true, "/dashboard": true, "/docs": true, "/test": true, "/favicon.ico": true}
+	noise := map[string]bool{"/metrics": true, "/health": true, "/dashboard": true, "/docs": true, "/test": true, "/favicon.ico": true, "/api/metrics/history": true, "/api/metrics/history/simple": true}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !noise[r.URL.Path] {
 			metrics.IncRequests()
