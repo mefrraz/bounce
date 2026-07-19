@@ -283,21 +283,33 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 		}
 	})
 
-	// Game Leaders (top performers)
-	doc.Find(".performance-wrapper").Each(func(_ int, w *goquery.Selection) {
+	// Game Leaders (top performers) with hardcoded category fallback
+	categories := []string{"PONTOS", "RESSALTOS", "ASSISTÊNCIAS", "ROUBOS", "DESARMES"}
+	doc.Find(".performance-wrapper").Each(func(idx int, w *goquery.Selection) {
 		cat := strings.TrimSpace(w.Find(".category-name").First().Text())
 		if cat == "" { cat = strings.TrimSpace(w.Find(".divider span").First().Text()) }
+		if cat == "" && idx < len(categories) { cat = categories[idx] }
 		players := w.Find(".player")
 		if players.Length() >= 2 {
+			// Try .valor first, then .divider children
+			homeStat := strings.TrimSpace(players.Eq(0).Find(".valor").First().Text())
+			awayStat := strings.TrimSpace(players.Eq(1).Find(".valor").First().Text())
+			if homeStat == "" || awayStat == "" {
+				divider := w.Find(".divider")
+				if dividerChildren := divider.Children(); dividerChildren.Length() >= 3 {
+					if homeStat == "" { homeStat = strings.TrimSpace(dividerChildren.Eq(0).Text()) }
+					if awayStat == "" { awayStat = strings.TrimSpace(dividerChildren.Eq(2).Text()) }
+				}
+			}
 			detail.GameLeaders = append(detail.GameLeaders, models.GameLeader{
 				Category: cat,
 				Home: models.LeaderPlayer{
 					Name: strings.TrimSpace(players.Eq(0).Find(".name").First().Text()),
-					Stat: strings.TrimSpace(players.Eq(0).Find(".valor").First().Text()),
+					Stat: homeStat,
 				},
 				Away: models.LeaderPlayer{
 					Name: strings.TrimSpace(players.Eq(1).Find(".name").First().Text()),
-					Stat: strings.TrimSpace(players.Eq(1).Find(".valor").First().Text()),
+					Stat: awayStat,
 				},
 			})
 		}
