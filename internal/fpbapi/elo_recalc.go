@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mefrraz/bounce/internal/clubs"
 	"github.com/mefrraz/bounce/internal/elo"
 )
 
@@ -120,20 +121,42 @@ func (f *FPBAPI) fetchFromSupabase(season string) ([]seasonGame, error) {
 
 // clubPriority returns the priority level for a team name, defaulting to 4.
 func (f *FPBAPI) clubPriority(name string) int {
-	// Simple heuristic — will be improved with clubs data
+	n := strings.ToLower(strings.TrimSpace(name))
+	for _, c := range clubs.All() {
+		if c.Priority == 0 { continue }
+		cn := strings.ToLower(strings.TrimSpace(c.Name))
+		cs := strings.ToLower(strings.TrimSpace(c.ShortName))
+		if n == cn || n == cs || strings.Contains(cn, n) || strings.Contains(n, cn) {
+			return c.Priority
+		}
+	}
 	return 4
 }
 
 // clubNameMap returns a map of normalized name → club ID.
 func (f *FPBAPI) clubNameMap() map[string]int {
-	return nil // placeholder
+	m := make(map[string]int)
+	for _, c := range clubs.All() {
+		key := strings.ToLower(strings.TrimSpace(c.Name))
+		m[key] = c.ID
+		if c.ShortName != "" {
+			m[strings.ToLower(strings.TrimSpace(c.ShortName))] = c.ID
+		}
+	}
+	return m
 }
 
-// matchClub finds the club ID for a team name.
+// matchClub finds the club ID for a team name using fuzzy matching.
 func matchClub(name string, clubMap map[string]int) int {
 	if clubMap == nil { return 0 }
 	n := strings.ToLower(strings.TrimSpace(name))
 	if id, ok := clubMap[n]; ok { return id }
+	// Try substring match
+	for clubName, id := range clubMap {
+		if strings.Contains(clubName, n) || strings.Contains(n, clubName) {
+			return id
+		}
+	}
 	return 0
 }
 
