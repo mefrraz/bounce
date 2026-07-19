@@ -86,19 +86,36 @@ func (f *FPBAPI) fetchFromSupabase(season string) ([]seasonGame, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil { return nil, err }
 	req.Header.Set("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkem13Z2FoZW5jaW5vdWN2b29wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NDg2OTQsImV4cCI6MjA1OTUyNDY5NH0._XWQ0td2LQ5Xb-XbS8xeeI1-L-qSc6uFe7EvZKX_SZY")
+	req.Header.Set("Accept", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil { return nil, err }
 	defer resp.Body.Close()
 
+	// Supabase may return [] or a wrapped object — try array first, then object
+	var raw json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, err
+	}
+
+	// Try [] first
 	var games []struct {
 		EquipaCasa    string `json:"equipa_casa"`
 		EquipaFora    string `json:"equipa_fora"`
 		ResultadoCasa *int   `json:"resultado_casa"`
 		ResultadoFora *int   `json:"resultado_fora"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&games); err != nil {
-		return nil, err
+	if err := json.Unmarshal(raw, &games); err != nil {
+		// Try object wrapper (some Supabase versions)
+		var wrapper struct {
+			Data json.RawMessage `json:"data"`
+		}
+		if err2 := json.Unmarshal(raw, &wrapper); err2 != nil || len(wrapper.Data) == 0 {
+			return nil, fmt.Errorf("unexpected Supabase response: %s", string(raw[:min(len(raw), 200)]))
+		}
+		if err := json.Unmarshal(wrapper.Data, &games); err != nil {
+			return nil, err
+		}
 	}
 
 	var out []seasonGame
