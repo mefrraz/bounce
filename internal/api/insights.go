@@ -28,8 +28,6 @@ func NewInsightsHandler() *InsightsHandler {
 }
 
 func (h *InsightsHandler) RegisterRoutes(r chi.Router) {
-	r.Get("/api/elo", h.GetRanking)
-	r.Get("/api/elo/{clubID}", h.GetClubELO)
 	r.Get("/api/predictions/{gameID}", h.GetPrediction)
 	r.Get("/api/h2h", h.GetHeadToHead)
 }
