@@ -49,49 +49,84 @@ func (s *Store) ImportGamesFromSupabase() {
 }
 
 func (s *Store) importSeason(table, season string) (int, error) {
-	url := fmt.Sprintf("%s/%s?select=*&order=data.asc", supabaseURL, table)
+	total := 0
+	offset := 0
+	limit := 1000
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil { return 0, err }
-	req.Header.Set("apikey", supabaseAnonKey)
-	req.Header.Set("Accept", "application/json")
+	for {
+		url := fmt.Sprintf("%s/%s?select=*&order=data.asc&limit=%d&offset=%d", supabaseURL, table, limit, offset)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil { return total, err }
+		req.Header.Set("apikey", supabaseAnonKey)
+		req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil { return 0, err }
-	defer resp.Body.Close()
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil { return total, err }
+		defer resp.Body.Close()
 
-	// Try array first, then wrapped object
-	var raw json.RawMessage
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return 0, err
-	}
-
-	var games []struct {
-		Slug           string `json:"slug"`
-		Data           string `json:"data"`
-		Hora           string `json:"hora"`
-		EquipaCasa     string `json:"equipa_casa"`
-		EquipaFora     string `json:"equipa_fora"`
-		ResultadoCasa  *int   `json:"resultado_casa"`
-		ResultadoFora  *int   `json:"resultado_fora"`
-		Competicao     string `json:"competicao"`
-		Escalao        string `json:"escalao"`
-		Local          string `json:"local"`
-		Status         string `json:"status"`
-		LogotipoCasa   string `json:"logotipo_casa"`
-		LogotipoFora   string `json:"logotipo_fora"`
-	}
-
-	if err := json.Unmarshal(raw, &games); err != nil {
-		var wrapper struct{ Data json.RawMessage `json:"data"` }
-		if err2 := json.Unmarshal(raw, &wrapper); err2 != nil || len(wrapper.Data) == 0 {
-			return 0, fmt.Errorf("unexpected format: %s", string(raw[:min(len(raw), 100)]))
+		var raw json.RawMessage
+		if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+			return total, err
 		}
-		if err := json.Unmarshal(wrapper.Data, &games); err != nil {
-			return 0, err
-		}
-	}
 
+		var games []struct {
+			Slug           string `json:"slug"`
+			Data           string `json:"data"`
+			Hora           string `json:"hora"`
+			EquipaCasa     string `json:"equipa_casa"`
+			EquipaFora     string `json:"equipa_fora"`
+			ResultadoCasa  *int   `json:"resultado_casa"`
+			ResultadoFora  *int   `json:"resultado_fora"`
+			Competicao     string `json:"competicao"`
+			Escalao        string `json:"escalao"`
+			Local          string `json:"local"`
+			Status         string `json:"status"`
+			LogotipoCasa   string `json:"logotipo_casa"`
+			LogotipoFora   string `json:"logotipo_fora"`
+		}
+
+		if err := json.Unmarshal(raw, &games); err != nil {
+			var wrapper struct{ Data json.RawMessage `json:"data"` }
+			if err2 := json.Unmarshal(raw, &wrapper); err2 != nil || len(wrapper.Data) == 0 {
+				// No more data or error — stop paginating
+				if total == 0 {
+					return 0, fmt.Errorf("unexpected format: %s", string(raw[:min(len(raw), 100)]))
+				}
+				break
+			}
+			if err := json.Unmarshal(wrapper.Data, &games); err != nil {
+				if total == 0 { return 0, err }
+				break
+			}
+		}
+
+		if len(games) == 0 { break }
+
+		n, err := s.insertGames(games, season)
+		if err != nil { return total, err }
+		total += n
+
+		if len(games) < limit { break }
+		offset += limit
+	}
+	return total, nil
+}
+
+func (s *Store) insertGames(games []struct {
+	Slug           string `json:"slug"`
+	Data           string `json:"data"`
+	Hora           string `json:"hora"`
+	EquipaCasa     string `json:"equipa_casa"`
+	EquipaFora     string `json:"equipa_fora"`
+	ResultadoCasa  *int   `json:"resultado_casa"`
+	ResultadoFora  *int   `json:"resultado_fora"`
+	Competicao     string `json:"competicao"`
+	Escalao        string `json:"escalao"`
+	Local          string `json:"local"`
+	Status         string `json:"status"`
+	LogotipoCasa   string `json:"logotipo_casa"`
+	LogotipoFora   string `json:"logotipo_fora"`
+}, season string) (int, error) {
 	tx, err := s.db.Begin()
 	if err != nil { return 0, err }
 	defer tx.Rollback()
