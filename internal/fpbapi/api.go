@@ -103,6 +103,14 @@ func (f *FPBAPI) GetGamesByClub(clubID, season, category, gender string) ([]mode
 	all := scraper.ScrapeGames(h.String(), "FINALIZADO")
 	normalizeGames(all)
 
+	// Persist to SQLite games table
+	for _, g := range all {
+		if g.ID == "" || g.Date == "" { continue }
+		f.cache.UpsertGame(g.ID, season, g.Date, g.Time,
+			g.HomeTeam, g.AwayTeam, g.Competition, g.Category, g.Venue, g.Status, g.HomeLogo, g.AwayLogo,
+			g.HomeScore, g.AwayScore)
+	}
+
 	hasToday := false
 	for _, g := range all {
 		if cache.IsToday(g.Date) { hasToday = true; break }

@@ -71,6 +71,9 @@ bouncedb = store
 	if err != nil { log.Fatalf("cache: %v", err) }
 	defer store.Close()
 
+	// Import historical games from Supabase (one-time, skipped if games exist)
+	go store.ImportGamesFromSupabase()
+
 	metrics.SetStore(store)
 	metrics.LoadHistory()
 
@@ -134,7 +137,8 @@ r.Patch("/api/clubs/{id}", clubsPatchHandler)
 r.Get("/admin", adminPageHandler)
 r.Post("/admin/login", adminLoginHandler)
 
-	apihandler.NewHandler(fpb).RegisterRoutes(r)
+	apiHandler := apihandler.NewHandler(fpb)
+	apiHandler.RegisterRoutes(r)
 	hub.RegisterRoutes(r)
 ws.RegisterDashboardRoute(r)
 	apihandler.NewInsightsHandler().RegisterRoutes(r)
@@ -142,6 +146,9 @@ ws.RegisterDashboardRoute(r)
 	sched.Start()
 	metrics.StartRecording()
 	go metricsBroadcaster()
+
+	// Daily scraper + ELO recalculation (aligns to 3am)
+	apiHandler.StartDailyScrapeAndELO()
 
 	if tuiMode {
 		go func() { fpb.GetCompetitions("", ""); fpb.GetStandings("10902") }()

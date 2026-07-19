@@ -1,37 +1,35 @@
 package fpbapi
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"strings"
 
 	"github.com/mefrraz/bounce/internal/clubs"
 	"github.com/mefrraz/bounce/internal/elo"
 )
 
-// RecalculateELO fetches all games for a season, computes ELO, and stores results.
+// RecalculateELO computes ELO for a season from the local games table and stores results.
 func (f *FPBAPI) RecalculateELO(season string) error {
 	store := elo.NewStore(f.cache.DB())
 
-	// 1. Fetch all games for this season from local cache/FPB
-	games, err := f.fetchAllGamesForSeason(season)
+	// 1. Fetch games from local SQLite
+	gameRows, err := f.cache.GetGamesBySeason(season)
 	if err != nil {
-		return fmt.Errorf("fetch games for %s: %w", season, err)
+		return fmt.Errorf("get games for %s: %w", season, err)
 	}
-	if len(games) == 0 {
+	if len(gameRows) == 0 {
 		return fmt.Errorf("no games found for %s", season)
 	}
 
 	// 2. Compute ELO
-	eloGames := make([]elo.Game, len(games))
-	for i, g := range games {
+	eloGames := make([]elo.Game, len(gameRows))
+	for i, g := range gameRows {
 		eloGames[i] = elo.Game{
-			HomeTeam:    g.HomeTeam,
-			AwayTeam:    g.AwayTeam,
-			HomeScore:   g.HomeScore,
-			AwayScore:   g.AwayScore,
+			HomeTeam:     g.HomeTeam,
+			AwayTeam:     g.AwayTeam,
+			HomeScore:    g.HomeScore,
+			AwayScore:    g.AwayScore,
 			HomePriority: f.clubPriority(g.HomeTeam),
 			AwayPriority: f.clubPriority(g.AwayTeam),
 		}
@@ -58,80 +56,8 @@ func (f *FPBAPI) RecalculateELO(season string) error {
 		return fmt.Errorf("store elo: %w", err)
 	}
 
-	log.Printf("[elo] %s: %d games → %d clubs rated", season, len(games), len(rows))
+	log.Printf("[elo] %s: %d games → %d clubs rated", season, len(gameRows), len(rows))
 	return nil
-}
-
-// Simple game struct for internal use.
-type seasonGame struct {
-	HomeTeam  string
-	AwayTeam  string
-	HomeScore int
-	AwayScore int
-}
-
-// fetchAllGamesForSeason gets all games for a season by fetching from FPB for all known clubs.
-// For now, returns empty — full implementation needs Supabase or FPB scrape.
-func (f *FPBAPI) fetchAllGamesForSeason(season string) ([]seasonGame, error) {
-	// TODO: Phase 2 — fetch all games from Supabase or FPB
-	log.Printf("[elo] fetchAllGamesForSeason %s: using Supabase games table", season)
-	return f.fetchFromSupabase(season)
-}
-
-// fetchFromSupabase reads games from the Supabase games_{season} table.
-func (f *FPBAPI) fetchFromSupabase(season string) ([]seasonGame, error) {
-	tableName := strings.ReplaceAll("games_"+season, "/", "_")
-	url := fmt.Sprintf("https://qdzmwgahencinoucvoop.supabase.co/rest/v1/%s?select=equipa_casa,equipa_fora,resultado_casa,resultado_fora&not.resultado_casa=is.null&not.resultado_fora=is.null&order=data.asc", tableName)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil { return nil, err }
-	req.Header.Set("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkem13Z2FoZW5jaW5vdWN2b29wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NDg2OTQsImV4cCI6MjA1OTUyNDY5NH0._XWQ0td2LQ5Xb-XbS8xeeI1-L-qSc6uFe7EvZKX_SZY")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil { return nil, err }
-	defer resp.Body.Close()
-
-	// Supabase may return [] or a wrapped object — try array first, then object
-	var raw json.RawMessage
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, err
-	}
-
-	// Try [] first
-	var games []struct {
-		EquipaCasa    string `json:"equipa_casa"`
-		EquipaFora    string `json:"equipa_fora"`
-		ResultadoCasa *int   `json:"resultado_casa"`
-		ResultadoFora *int   `json:"resultado_fora"`
-	}
-	if err := json.Unmarshal(raw, &games); err != nil {
-		// Try object wrapper (some Supabase versions)
-		var wrapper struct {
-			Data json.RawMessage `json:"data"`
-		}
-		if err2 := json.Unmarshal(raw, &wrapper); err2 != nil || len(wrapper.Data) == 0 {
-			return nil, fmt.Errorf("unexpected Supabase response: %s", string(raw[:min(len(raw), 200)]))
-		}
-		if err := json.Unmarshal(wrapper.Data, &games); err != nil {
-			return nil, err
-		}
-	}
-
-	var out []seasonGame
-	for _, g := range games {
-		hc := 0
-		ac := 0
-		if g.ResultadoCasa != nil { hc = *g.ResultadoCasa }
-		if g.ResultadoFora != nil { ac = *g.ResultadoFora }
-		out = append(out, seasonGame{
-			HomeTeam:  strings.TrimSpace(g.EquipaCasa),
-			AwayTeam:  strings.TrimSpace(g.EquipaFora),
-			HomeScore: hc,
-			AwayScore: ac,
-		})
-	}
-	return out, nil
 }
 
 // clubPriority returns the priority level for a team name, defaulting to 4.
@@ -166,7 +92,6 @@ func matchClub(name string, clubMap map[string]int) int {
 	if clubMap == nil { return 0 }
 	n := strings.ToLower(strings.TrimSpace(name))
 	if id, ok := clubMap[n]; ok { return id }
-	// Try substring match
 	for clubName, id := range clubMap {
 		if strings.Contains(clubName, n) || strings.Contains(n, clubName) {
 			return id
