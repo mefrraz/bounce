@@ -52,6 +52,14 @@ func (f *FPBAPI) GetGame(internalID string) (*models.GameDetail, error) {
 	if err != nil { return nil, fmt.Errorf("parse game %s: %w", internalID, err) }
 	detail.ID = internalID
 
+	// Normalize team names using clubs data
+	homeName, homeLogo := clubs.NormalizeTeam(detail.HomeTeam, detail.HomeLogo)
+	awayName, awayLogo := clubs.NormalizeTeam(detail.AwayTeam, detail.AwayLogo)
+	detail.HomeTeam = homeName
+	detail.HomeLogo = homeLogo
+	detail.AwayTeam = awayName
+	detail.AwayLogo = awayLogo
+
 	// Chain invalidation: status change → invalidate club calendars
 	if oldRaw, ok := f.cache.Get(key); ok {
 		var old models.GameDetail

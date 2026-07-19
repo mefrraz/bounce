@@ -16,6 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mefrraz/bounce/internal/cache"
+	"github.com/mefrraz/bounce/internal/clubs"
 	"github.com/mefrraz/bounce/internal/fpbapi"
 )
 
@@ -142,6 +143,9 @@ func (h *Handler) GetGame(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 	return
+	}
+	if game != nil {
+		clubs.FixGameDetail(game)
 	}
 	writeJSON(w, http.StatusOK, game)
 }
