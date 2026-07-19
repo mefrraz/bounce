@@ -21,18 +21,19 @@ var seasonsToImport = []string{
 }
 
 // ImportGamesFromSupabase fetches all historical games from Supabase and inserts into SQLite.
-// Only runs once (detected by empty games table). Call at startup.
-func (s *Store) ImportGamesFromSupabase() {
+// Only runs once (detected by empty games table). Returns seasons that got data.
+func (s *Store) ImportGamesFromSupabase() []string {
 	var count int
 	s.db.QueryRow("SELECT COUNT(*) FROM games").Scan(&count)
 	if count > 0 {
 		log.Printf("[import] games table already has %d rows, skipping", count)
-		return
+		return nil
 	}
 
 	log.Printf("[import] starting Supabase → SQLite migration for %d seasons", len(seasonsToImport))
 	start := time.Now()
 	total := 0
+	var imported []string
 
 	for _, season := range seasonsToImport {
 		table := "games_" + strings.ReplaceAll(season, "/", "_")
@@ -42,10 +43,12 @@ func (s *Store) ImportGamesFromSupabase() {
 			continue
 		}
 		total += n
+		if n > 0 { imported = append(imported, season) }
 		log.Printf("[import] %s: %d games", season, n)
 	}
 
 	log.Printf("[import] done: %d games in %v", total, time.Since(start).Round(time.Second))
+	return imported
 }
 
 func (s *Store) importSeason(table, season string) (int, error) {

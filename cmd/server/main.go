@@ -71,9 +71,6 @@ bouncedb = store
 	if err != nil { log.Fatalf("cache: %v", err) }
 	defer store.Close()
 
-	// Import historical games from Supabase (one-time, skipped if games exist)
-	go store.ImportGamesFromSupabase()
-
 	metrics.SetStore(store)
 	metrics.LoadHistory()
 
@@ -81,6 +78,18 @@ bouncedb = store
 	defer client.Stop()
 
 	fpb := fpbapi.New(client, store)
+
+	// Import historical games from Supabase (one-time, skipped if games exist)
+	go func() {
+		seasons := store.ImportGamesFromSupabase()
+		for _, s := range seasons {
+			log.Printf("[import] recalculating ELO for %s", s)
+			if err := fpb.RecalculateELO(s); err != nil {
+				log.Printf("[import] ELO %s error: %v", s, err)
+			}
+		}
+	}()
+
 	hub := ws.NewHub(nil, nil)
 
 	sched := scheduler.New(
