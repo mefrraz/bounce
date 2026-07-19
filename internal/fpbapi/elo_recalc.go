@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/mefrraz/bounce/internal/clubs"
@@ -159,7 +157,3 @@ func matchClub(name string, clubMap map[string]int) int {
 	}
 	return 0
 }
-
-// dump unused imports
-var _ = sort.Ints
-var _ = strconv.Itoa
