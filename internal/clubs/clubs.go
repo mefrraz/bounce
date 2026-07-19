@@ -20,7 +20,7 @@ type Club struct {
 	ID            int     `json:"id"`
 	Name          string  `json:"name"`
 	Slug          string  `json:"slug,omitempty"`
-	ShortName     string  `json:"short_name,omitempty"`
+	ShortName     string  `json:"short_name"`
 	SearchName    string  `json:"search_name,omitempty"`
 	LogoURL       string  `json:"logo_url,omitempty"`
 	PrimaryColor  string  `json:"primary_color,omitempty"`
@@ -130,9 +130,7 @@ func RefreshFromFPB() (updated int, added int, errs int) {
 				ex.Name = sc.Name
 			}
 			ex.LogoURL = sc.LogoURL
-			if ex.ShortName == "" {
-				ex.ShortName = sc.ShortName
-			}
+			// Preserve existing short_name — FPB scraper can't extract it
 			updated++
 		} else {
 			// New club
