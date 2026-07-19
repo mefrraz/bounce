@@ -303,15 +303,19 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 					if awayStat == "" { awayStat = strings.TrimSpace(dividerChildren.Eq(2).Text()) }
 				}
 			}
+			homePhoto, _ := players.Eq(0).Find("img").First().Attr("src")
+			awayPhoto, _ := players.Eq(1).Find("img").First().Attr("src")
 			detail.GameLeaders = append(detail.GameLeaders, models.GameLeader{
 				Category: cat,
 				Home: models.LeaderPlayer{
-					Name: strings.TrimSpace(players.Eq(0).Find(".name").First().Text()),
-					Stat: homeStat,
+					Name:  strings.TrimSpace(players.Eq(0).Find(".name").First().Text()),
+					Stat:  homeStat,
+					Photo: homePhoto,
 				},
 				Away: models.LeaderPlayer{
-					Name: strings.TrimSpace(players.Eq(1).Find(".name").First().Text()),
-					Stat: awayStat,
+					Name:  strings.TrimSpace(players.Eq(1).Find(".name").First().Text()),
+					Stat:  awayStat,
+					Photo: awayPhoto,
 				},
 			})
 		}
@@ -328,6 +332,7 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 			s := models.PlayerStat{
 				Name: name, Number: atoi(strings.TrimSpace(cells.Eq(0).Text())),
 				PTS: atoi(strings.TrimSpace(cells.Eq(2).Text())),
+				Photo: func() string { p, _ := cells.Eq(1).Find("img").First().Attr("src"); return p }(),
 			}
 			if cells.Length() > 3 { s.MIN = strings.TrimSpace(cells.Eq(3).Text()) }
 			if cells.Length() > 4 { s.L2 = strings.TrimSpace(cells.Eq(4).Text()) }
@@ -352,6 +357,31 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 		s := parseBoxScore(table)
 		if i == 0 && len(s) > 0 { detail.HomeStats = s }
 		if i == 1 && len(s) > 0 { detail.AwayStats = s }
+	})
+
+	// Top Performers (Duelo card): .players-wrapper
+	if topWrapper := doc.Find(".players-wrapper").First(); topWrapper.Length() > 0 {
+		players := topWrapper.Find(".player")
+		if players.Length() >= 2 {
+			detail.TopPerfCasa = models.TopPerformer{
+				Name: strings.TrimSpace(players.Eq(0).Find(".name").First().Text()),
+			}
+			detail.TopPerfCasa.Photo, _ = players.Eq(0).Find("img").First().Attr("src")
+			detail.TopPerfFora = models.TopPerformer{
+				Name: strings.TrimSpace(players.Eq(players.Length()-1).Find(".name").First().Text()),
+			}
+			detail.TopPerfFora.Photo, _ = players.Eq(players.Length()-1).Find("img").First().Attr("src")
+		}
+	}
+	// Top Performer Stats: .topPerformers-stats .type-key-stats.big
+	doc.Find(".topPerformers-stats .type-key-stats.big").Each(func(_ int, el *goquery.Selection) {
+		label := strings.TrimSpace(el.Find(".double p").First().Text())
+		vals := el.Find(".one-line-graph.single p")
+		cs := strings.TrimSpace(vals.Eq(0).Text())
+		fs := strings.TrimSpace(vals.Eq(1).Text())
+		if label != "" && (cs != "" || fs != "") {
+			detail.TopPerfStats = append(detail.TopPerfStats, models.TopPerfStat{Label: label, Casa: cs, Fora: fs})
+		}
 	})
 
 	return detail, nil

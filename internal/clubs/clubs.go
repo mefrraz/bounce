@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/mefrraz/bounce/internal/models"
 )
 
 // Club represents a basketball club as stored in the JSON database.
@@ -293,6 +295,12 @@ func NormalizeTeam(rawName, logoURL string) (string, string) {
 		return name, c.LogoURL
 	}
 	return rawName, logoURL
+}
+
+// FixGameDetail normalizes the team names and logos in a GameDetail.
+func FixGameDetail(d *models.GameDetail) {
+	d.HomeTeam, d.HomeLogo = NormalizeTeam(d.HomeTeam, d.HomeLogo)
+	d.AwayTeam, d.AwayLogo = NormalizeTeam(d.AwayTeam, d.AwayLogo)
 }
 
 // StartDailyRefresh runs a background goroutine that refreshes clubs from FPB every 24h.

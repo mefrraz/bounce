@@ -58,7 +58,10 @@ type GameDetail struct {
 	Periods     []Period     `json:"periodos,omitempty"`
 	HomeStats   []PlayerStat `json:"stats_casa,omitempty"`
 	AwayStats   []PlayerStat `json:"stats_fora,omitempty"`
-	GameLeaders []GameLeader `json:"game_leaders,omitempty"`
+	GameLeaders  []GameLeader  `json:"game_leaders,omitempty"`
+	TopPerfCasa  TopPerformer  `json:"top_perf_casa"`
+	TopPerfFora  TopPerformer  `json:"top_perf_fora"`
+	TopPerfStats []TopPerfStat `json:"top_perf_stats"`
 }
 
 type Period struct {
@@ -74,12 +77,25 @@ type GameLeader struct {
 }
 
 type LeaderPlayer struct {
-	Name string `json:"nome"`
-	Stat string `json:"valor"`
+	Name  string `json:"nome"`
+	Stat  string `json:"valor"`
+	Photo string `json:"foto,omitempty"`
+}
+
+type TopPerformer struct {
+	Name  string `json:"nome"`
+	Photo string `json:"foto,omitempty"`
+}
+
+type TopPerfStat struct {
+	Label string `json:"label"`
+	Casa  string `json:"casa"`
+	Fora  string `json:"fora"`
 }
 
 type PlayerStat struct {
 	Name     string `json:"nome"`
+	Photo    string `json:"foto,omitempty"`
 	Number   int    `json:"numero,omitempty"`
 	MIN      string `json:"min,omitempty"`
 	PTS      int    `json:"pts"`
