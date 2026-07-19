@@ -43,7 +43,7 @@ r.Get("/api/club/{clubID}/teams", h.GetClubTeams)
 r.Get("/api/tugabasket/standings", h.GetTugaBasketStandings)
 r.Get("/api/tugabasket/players", h.GetTugaBasketPlayers)
 r.Get("/api/tugabasket/teams", h.GetTugaBasketTeams)
-	r.Get("/api/elo/{season}", h.GetELO)
+	r.Get("/api/elo", h.GetELO)
 	r.Post("/api/admin/elo/recalculate", h.AdminELORecalculate)
 }
 

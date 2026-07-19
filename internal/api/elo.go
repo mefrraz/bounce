@@ -5,13 +5,13 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/mefrraz/bounce/internal/elo"
 )
 
 // GetELO returns ELO ratings for a season from the SQLite elo_history table.
 func (h *Handler) GetELO(w http.ResponseWriter, r *http.Request) {
-	season := chi.URLParam(r, "season")
+	season := r.URL.Query().Get("season")
+	if season == "" { season = "2025/2026" }
 	store := elo.NewStore(h.FPB.Cache().DB())
 	ratings, err := store.GetSeason(season)
 	if err != nil {
