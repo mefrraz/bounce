@@ -49,7 +49,7 @@ func (s *Store) ImportGamesFromSupabase() {
 }
 
 func (s *Store) importSeason(table, season string) (int, error) {
-	url := fmt.Sprintf("%s/%s?select=id,data,hora,equipa_casa,equipa_fora,resultado_casa,resultado_fora,competicao,escalao,local,status,logotipo_casa,logotipo_fora&order=data.asc", supabaseURL, table)
+	url := fmt.Sprintf("%s/%s?select=*&order=data.asc", supabaseURL, table)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil { return 0, err }
@@ -67,7 +67,7 @@ func (s *Store) importSeason(table, season string) (int, error) {
 	}
 
 	var games []struct {
-		ID             string `json:"id"`
+		Slug           string `json:"slug"`
 		Data           string `json:"data"`
 		Hora           string `json:"hora"`
 		EquipaCasa     string `json:"equipa_casa"`
@@ -109,12 +109,9 @@ func (s *Store) importSeason(table, season string) (int, error) {
 		if logoF == "" { logoF = "-" }
 		status := g.Status
 		if status == "" { status = "FINALIZADO" }
-		id := g.ID
-		if id == "" {
-			// Generate from data+teams if missing
-			id = g.Data + "-" + strings.ToLower(g.EquipaCasa) + "-" + strings.ToLower(g.EquipaFora)
-			id = strings.ReplaceAll(id, " ", "-")
-		}
+		// Generate ID from data+teams (older tables don't have id/slug columns)
+		id := g.Data + "-" + strings.ToLower(g.EquipaCasa) + "-" + strings.ToLower(g.EquipaFora)
+		id = strings.ReplaceAll(id, " ", "-")
 
 		if _, err := stmt.Exec(id, season, g.Data, g.Hora, g.EquipaCasa, g.EquipaFora, g.ResultadoCasa, g.ResultadoFora, g.Competicao, g.Escalao, loc, status, logoC, logoF); err != nil {
 			return 0, err
