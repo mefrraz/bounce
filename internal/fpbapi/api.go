@@ -24,6 +24,7 @@ type FPBAPI struct {
 }
 
 func New(c *httpclient.Client, s *cache.Store) *FPBAPI { return &FPBAPI{http: c, cache: s} }
+func (f *FPBAPI) Cache() *cache.Store { return f.cache }
 
 // normalizeGames replaces raw FPB team names/logos with canonical club data where possible.
 func normalizeGames(games []models.Game) {

@@ -48,6 +48,17 @@ func migrate(db *sql.DB) error {
 	)`)
 	if err != nil { return err }
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_metrics_time ON metrics_snapshots(time)`)
+	if err != nil { return err }
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS elo_history (
+		club_id INTEGER NOT NULL,
+		season TEXT NOT NULL,
+		elo_rating REAL NOT NULL DEFAULT 1500,
+		games_played INTEGER NOT NULL DEFAULT 0,
+		updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+		PRIMARY KEY (club_id, season)
+	)`)
+	if err != nil { return err }
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_elo_season ON elo_history(season)`)
 	return err
 }
 
@@ -91,6 +102,7 @@ func (s *Store) Invalidate(prefix string) error {
 
 func (s *Store) Close() error { return s.db.Close() }
 func (s *Store) Ping() bool { return s.db.Ping() == nil }
+func (s *Store) DB() *sql.DB { return s.db }
 
 func (s *Store) SaveMetric(ts time.Time, requests, cacheHits, cacheMisses, fpbRequests, rateLimited uint64, goroutines int) {
 	s.db.Exec(`INSERT INTO metrics_snapshots (time, requests, cache_hits, cache_misses, fpb_requests, rate_limited, goroutines) VALUES (?, ?, ?, ?, ?, ?, ?)`,

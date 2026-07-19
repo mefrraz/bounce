@@ -12,66 +12,62 @@ const (
 
 // Game represents a single game for ELO calculation.
 type Game struct {
-	HomeTeam  string
-	AwayTeam  string
-	HomeScore int
-	AwayScore int
+	HomeTeam   string
+	AwayTeam   string
+	HomeScore  int
+	AwayScore  int
+	HomePriority int // club priority level (1-4, lower = higher division)
+	AwayPriority int
 }
 
-// Rating holds the ELO rating for a team.
-type Rating struct {
-	Team   string  `json:"team"`
-	Rating float64 `json:"rating"`
+// TeamRating holds intermediate ELO rating for a team name during calculation.
+type TeamRating struct {
+	Team        string
+	Rating      float64
+	GamesPlayed int
+	Priority    int
 }
 
-// Calculate computes ELO ratings for a season given the list of games.
-// All teams start at DefaultELO. Games should be in chronological order.
-func Calculate(games []Game) []Rating {
-	ratings := make(map[string]float64)
+// Calculate computes per-season ELO from a chronologically sorted list of games.
+// Teams start at DefaultELO. Priority adjustment: (awayPrio - homePrio) * 100 points.
+func Calculate(games []Game) []TeamRating {
+	ratings := make(map[string]*TeamRating)
 
-	getRating := func(team string) float64 {
-		if r, ok := ratings[team]; ok {
-			return r
-		}
-		ratings[team] = DefaultELO
-		return DefaultELO
+	get := func(team string, prio int) *TeamRating {
+		if r, ok := ratings[team]; ok { return r }
+		r := &TeamRating{Team: team, Rating: DefaultELO, Priority: prio}
+		ratings[team] = r
+		return r
 	}
 
 	for _, g := range games {
-		ra := getRating(g.HomeTeam)
-		rb := getRating(g.AwayTeam)
+		home := get(g.HomeTeam, g.HomePriority)
+		away := get(g.AwayTeam, g.AwayPriority)
 
-		// Expected scores
-		ea := 1.0 / (1.0 + math.Pow(10, (rb-ra)/400.0))
-		eb := 1.0 - ea
+		// Priority adjusted expected score
+		priorityAdj := float64(g.AwayPriority-g.HomePriority) * 100.0
+		eHome := 1.0 / (1.0 + math.Pow(10, (away.Rating-home.Rating+priorityAdj)/400.0))
+		eAway := 1.0 - eHome
 
-		// Point differential multiplier (diminishing returns)
-		margin := math.Abs(float64(g.HomeScore - g.AwayScore))
-		marginMultiplier := math.Sqrt(margin+1) / 2.0
-		if marginMultiplier > 1.5 {
-			marginMultiplier = 1.5
-		}
-
-		var sa, sb float64
+		var sHome, sAway float64
 		if g.HomeScore > g.AwayScore {
-			sa, sb = 1.0, 0.0
+			sHome, sAway = 1, 0
 		} else if g.AwayScore > g.HomeScore {
-			sa, sb = 0.0, 1.0
+			sHome, sAway = 0, 1
 		} else {
-			sa, sb = 0.5, 0.5
+			sHome, sAway = 0.5, 0.5
 		}
 
-		ratings[g.HomeTeam] = ra + KFactor*marginMultiplier*(sa-ea)
-		ratings[g.AwayTeam] = rb + KFactor*marginMultiplier*(sb-eb)
+		home.Rating += KFactor * (sHome - eHome)
+		away.Rating += KFactor * (sAway - eAway)
+		home.GamesPlayed++
+		away.GamesPlayed++
 	}
 
-	// Convert map to sorted slice
-	result := make([]Rating, 0, len(ratings))
-	for team, rating := range ratings {
-		result = append(result, Rating{Team: team, Rating: math.Round(rating)})
+	result := make([]TeamRating, 0, len(ratings))
+	for _, r := range ratings {
+		result = append(result, *r)
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Rating > result[j].Rating
-	})
+	sort.Slice(result, func(i, j int) bool { return result[i].Rating > result[j].Rating })
 	return result
 }
