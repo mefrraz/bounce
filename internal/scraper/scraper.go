@@ -288,7 +288,9 @@ func ScrapeGameDetail(html string) (*models.GameDetail, error) {
 	doc.Find(".performance-wrapper").Each(func(idx int, w *goquery.Selection) {
 		cat := strings.TrimSpace(w.Find(".category-name").First().Text())
 		if cat == "" { cat = strings.TrimSpace(w.Find(".divider span").First().Text()) }
-		if cat == "" && idx < len(categories) { cat = categories[idx] }
+		if cat == "" || cat == "-" {
+			if idx < len(categories) { cat = categories[idx] } else { cat = "" }
+		}
 		players := w.Find(".player")
 		if players.Length() >= 2 {
 			// Try .valor first, then .divider children
