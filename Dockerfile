@@ -4,7 +4,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN cp VERSION internal/version/VERSION
+RUN cp VERSION internal/api/VERSION && cp VERSION internal/version/VERSION
 RUN echo $(date -u '+%Y-%m-%dT%H:%M:%SZ') > internal/version/BUILD_TIME
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bounce ./cmd/server
 
