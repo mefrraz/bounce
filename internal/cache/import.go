@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkem13Z2FoZW5jaW5vdWN2b29wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NDg2OTQsImV4cCI6MjA1OTUyNDY5NH0._XWQ0td2LQ5Xb-XbS8xeeI1-L-qSc6uFe7EvZKX_SZY"
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkem13Z2FoZW5jaW5vdWN2b29wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5NTQ2NTEsImV4cCI6MjA4NTUzMDY1MX0.HNcyu7zHA6oxBNh0T7HX-6Ui-8g2fBE5gFP4xtkpPJ4"
 const supabaseURL = "https://qdzmwgahencinoucvoop.supabase.co/rest/v1"
 
 var seasonsToImport = []string{
