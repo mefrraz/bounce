@@ -62,8 +62,8 @@ func migrate(db *sql.DB) error {
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_elo_season ON elo_history(season)`)
 	if err != nil { return err }
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS games (
-		id TEXT PRIMARY KEY,
 		season TEXT NOT NULL DEFAULT '',
+		id TEXT NOT NULL DEFAULT '',
 		data TEXT NOT NULL DEFAULT '',
 		hora TEXT NOT NULL DEFAULT '',
 		equipa_casa TEXT NOT NULL DEFAULT '',
@@ -77,7 +77,8 @@ func migrate(db *sql.DB) error {
 		logo_casa TEXT NOT NULL DEFAULT '',
 		logo_fora TEXT NOT NULL DEFAULT '',
 		created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-		updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+		updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+		PRIMARY KEY (season, id)
 	)`)
 	if err != nil { return err }
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_games_season ON games(season, data)`)
