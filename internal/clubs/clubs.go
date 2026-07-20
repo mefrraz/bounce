@@ -297,6 +297,65 @@ func NormalizeTeam(rawName, logoURL string) (string, string) {
 	return rawName, logoURL
 }
 
+// MaybeAddPending checks if a team name is unknown and adds it as a pending club.
+func MaybeAddPending(name, logoURL string) {
+	clubsMu.RLock()
+	for _, c := range clubsData {
+		if strings.EqualFold(c.Name, name) || strings.EqualFold(c.ShortName, name) {
+			clubsMu.RUnlock()
+			return
+		}
+	}
+	clubsMu.RUnlock()
+
+	// Not found — add as pending
+	slug := slugify(name)
+	clubsMu.Lock()
+	defer clubsMu.Unlock()
+
+	// Double-check after acquiring write lock
+	for _, c := range clubsData {
+		if strings.EqualFold(c.Name, name) || strings.EqualFold(c.ShortName, name) {
+			return
+		}
+	}
+
+	id := nextPendingID()
+	color := ExtractColor(logoURL)
+	clubsData = append(clubsData, Club{
+		ID:           id,
+		Name:         name,
+		Slug:         slug,
+		SearchName:   slugifyLower(name),
+		LogoURL:      logoURL,
+		PrimaryColor: color,
+		Priority:     4,
+		EloRating:    1500,
+	})
+	log.Printf("[clubs] auto-added pending: %s (#%d)", name, id)
+}
+
+func nextPendingID() int {
+	// Use negative IDs for pending clubs (won't conflict with FPB IDs)
+	minID := -1
+	for _, c := range clubsData {
+		if c.ID < minID { minID = c.ID }
+	}
+	return minID - 1
+}
+
+func slugifyLower(s string) string {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "-")
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
 // FixGameDetail normalizes the team names and logos in a GameDetail.
 func FixGameDetail(d *models.GameDetail) {
 	d.HomeTeam, d.HomeLogo = NormalizeTeam(d.HomeTeam, d.HomeLogo)

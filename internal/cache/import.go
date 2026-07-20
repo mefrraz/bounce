@@ -111,16 +111,14 @@ func (s *Store) importSeasonSimple(table, season string) (int, error) {
 			return total, err
 		}
 
-		log.Printf("[import] %s page %d: committed %d rows (total=%d)", season, offset/1000, len(games), total)
-
 		if len(games) < 1000 { break }
 		offset += 1000
 	}
 
-	// Verify after season completes
-	var verifyCount int
-	s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ?", season).Scan(&verifyCount)
-	log.Printf("[import] %s: %d rows verified in DB after import", season, verifyCount)
+	// Verify after season completes (debug only)
+	// var verifyCount int
+	// s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ?", season).Scan(&verifyCount)
+	// log.Printf("[import] %s: %d rows verified in DB after import", season, verifyCount)
 
 	return total, nil
 }

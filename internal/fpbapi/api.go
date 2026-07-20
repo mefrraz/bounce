@@ -27,11 +27,19 @@ func New(c *httpclient.Client, s *cache.Store) *FPBAPI { return &FPBAPI{http: c,
 func (f *FPBAPI) Cache() *cache.Store { return f.cache }
 
 // normalizeGames replaces raw FPB team names/logos with canonical club data where possible.
+// Also auto-detects new clubs for team names not matching any known club.
 func normalizeGames(games []models.Game) {
 	for i := range games {
 		g := &games[i]
 		homeName, homeLogo := clubs.NormalizeTeam(g.HomeTeam, g.HomeLogo)
 		awayName, awayLogo := clubs.NormalizeTeam(g.AwayTeam, g.AwayLogo)
+		// If team name wasn't normalized, try to add as new club
+		if homeName == g.HomeTeam && g.HomeTeam != "" && g.HomeLogo != "" {
+			clubs.MaybeAddPending(g.HomeTeam, g.HomeLogo)
+		}
+		if awayName == g.AwayTeam && g.AwayTeam != "" && g.AwayLogo != "" {
+			clubs.MaybeAddPending(g.AwayTeam, g.AwayLogo)
+		}
 		g.HomeTeam = homeName
 		g.HomeLogo = homeLogo
 		g.AwayTeam = awayName

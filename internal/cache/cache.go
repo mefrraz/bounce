@@ -3,7 +3,6 @@ package cache
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -141,18 +140,6 @@ func (s *Store) UpsertGame(id, season, data, hora, equipaCasa, equipaFora, compe
 
 // GetGamesBySeason returns all finished games for a season, ordered by date.
 func (s *Store) GetGamesBySeason(season string) ([]GameRow, error) {
-	// Debug: run raw query and log
-	var total, withScores int
-	s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ?", season).Scan(&total)
-	s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ? AND resultado_casa IS NOT NULL AND resultado_fora IS NOT NULL", season).Scan(&withScores)
-	
-	// Also check: what seasons exist + grand total
-	var grandTotal int
-	var sampleSeason string
-	s.db.QueryRow("SELECT COUNT(*) FROM games").Scan(&grandTotal)
-	s.db.QueryRow("SELECT season FROM games LIMIT 1").Scan(&sampleSeason)
-	log.Printf("[games] season=%q total=%d scored=%d grandTotal=%d sample=%q", season, total, withScores, grandTotal, sampleSeason)
-
 	rows, err := s.db.Query(`SELECT id, season, data, equipa_casa, equipa_fora, resultado_casa, resultado_fora
 		FROM games WHERE season = ? AND resultado_casa IS NOT NULL AND resultado_fora IS NOT NULL
 		ORDER BY data ASC`, season)
