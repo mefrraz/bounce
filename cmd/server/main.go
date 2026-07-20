@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -225,6 +226,10 @@ func prettyLogger(next http.Handler) http.Handler {
 		start := time.Now()
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
+		// Skip health, metrics, dashboard polling from logs
+		if r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, "/api/metrics") || r.URL.Path == "/metrics" {
+			return
+		}
 		fmt.Printf("\033[90m[%s]\033[0m \033[36m%s\033[0m %s → \033[%dm%d\033[0m %v\n",
 			time.Now().Format("15:04:05"),
 			r.Method,

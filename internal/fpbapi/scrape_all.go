@@ -24,6 +24,7 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 
 	var total int64
 	var errors int64
+	var processed int64
 
 	for _, club := range allClubs {
 		sem <- struct{}{}
@@ -35,6 +36,14 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 				return
 			}
 			atomic.AddInt64(&total, int64(len(games)))
+
+			// Progress every 10%
+			n := int(atomic.AddInt64(&processed, 1))
+			if n%max(1, len(allClubs)/10) == 0 {
+				elapsed := time.Since(start).Round(time.Second)
+				pct := n * 100 / len(allClubs)
+				log.Printf("[scrape]   %d/%d clubs (%d%%, %v elapsed)", n, len(allClubs), pct, elapsed)
+			}
 		}(club.ID)
 	}
 
