@@ -81,38 +81,34 @@ bouncedb = store
 
 	fpb := fpbapi.New(client, store)
 
-	// Import historical games + calculate ELO for ALL seasons with games
-	go func() {
-		store.ImportGamesFromSupabase()
+	// Import/Srape/ELO based on BOUNCE_MODE
+	bounceMode := os.Getenv("BOUNCE_MODE")
+	if bounceMode == "" { bounceMode = "import" }
 
-		// Find all seasons that have games in the DB
-		rows, err := store.DB().Query("SELECT DISTINCT season FROM games ORDER BY season")
-		if err != nil {
-			log.Printf("[elo] failed to query seasons: %v", err)
-			return
-		}
-		defer rows.Close()
+	if bounceMode != "off" {
+		go func() {
+			if bounceMode == "import" {
+				store.ImportGamesFromSupabase()
+			} else if bounceMode == "scrape" {
+				log.Printf("[scrape] mode=scrape — scraping all clubs for current season")
+				fpb.ScrapeAllClubs(cache.CurrentSeason())
+			}
 
-		var allSeasons []string
-		for rows.Next() {
-			var s string
-			if err := rows.Scan(&s); err == nil && s != "" {
-				allSeasons = append(allSeasons, s)
-			}
-		}
+			// Calculate ELO for all seasons with games (regardless of mode)
+			rows, err := store.DB().Query("SELECT DISTINCT season FROM games ORDER BY season")
+			if err != nil { log.Printf("[elo] query seasons: %v", err); return }
+			defer rows.Close()
+			var allSeasons []string
+			for rows.Next() { var s string; if rows.Scan(&s) == nil && s != "" { allSeasons = append(allSeasons, s) } }
 
-		// Calculate ELO for any season missing data
-		eloStore := elo.NewStore(store.DB())
-		for _, s := range allSeasons {
-			if eloStore.HasSeason(s) {
-				continue // already has ELO
+			eloStore := elo.NewStore(store.DB())
+			for _, s := range allSeasons {
+				if eloStore.HasSeason(s) { continue }
+				log.Printf("[elo] calculating %s", s)
+				if err := fpb.RecalculateELO(s); err != nil { log.Printf("[elo] %s: %v", s, err) }
 			}
-			log.Printf("[elo] auto-calculating missing season %s", s)
-			if err := fpb.RecalculateELO(s); err != nil {
-				log.Printf("[elo] %s error: %v", s, err)
-			}
-		}
-	}()
+		}()
+	}
 
 	hub := ws.NewHub(nil, nil)
 

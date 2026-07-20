@@ -5,12 +5,18 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
 
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkem13Z2FoZW5jaW5vdWN2b29wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5NTQ2NTEsImV4cCI6MjA4NTUzMDY1MX0.HNcyu7zHA6oxBNh0T7HX-6Ui-8g2fBE5gFP4xtkpPJ4"
-const supabaseURL = "https://qdzmwgahencinoucvoop.supabase.co/rest/v1"
+func supabaseConfig() (url, anonKey string) {
+	url = os.Getenv("BOUNCE_SUPABASE_URL")
+	anonKey = os.Getenv("BOUNCE_SUPABASE_ANON_KEY")
+	if url == "" { url = "https://qdzmwgahencinoucvoop.supabase.co" }
+	if anonKey == "" { anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkem13Z2FoZW5jaW5vdWN2b29wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5NTQ2NTEsImV4cCI6MjA4NTUzMDY1MX0.HNcyu7zHA6oxBNh0T7HX-6Ui-8g2fBE5gFP4xtkpPJ4" }
+	return
+}
 
 var seasonsToImport = []string{
 	"2016/2017", "2017/2018", "2018/2019", "2019/2020",
@@ -65,10 +71,11 @@ type gameRow struct {
 
 func (s *Store) importSeasonSimple(table, season string) (int, error) {
 	total := 0
+	supabaseURL, supabaseAnonKey := supabaseConfig()
 	offset := 0
 
 	for {
-		url := fmt.Sprintf("%s/%s?select=slug,data,hora,equipa_casa,equipa_fora,resultado_casa,resultado_fora,competicao,escalao,local,status,logotipo_casa,logotipo_fora&order=data.asc&limit=1000&offset=%d", supabaseURL, table, offset)
+		url := fmt.Sprintf("%s/rest/v1/%s?select=slug,data,hora,equipa_casa,equipa_fora,resultado_casa,resultado_fora,competicao,escalao,local,status,logotipo_casa,logotipo_fora&order=data.asc&limit=1000&offset=%d", supabaseURL, table, offset)
 
 		req, _ := http.NewRequest("GET", url, nil)
 		req.Header.Set("apikey", supabaseAnonKey)
