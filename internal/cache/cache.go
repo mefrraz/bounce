@@ -3,6 +3,7 @@ package cache
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -139,6 +140,12 @@ func (s *Store) UpsertGame(id, season, data, hora, equipaCasa, equipaFora, compe
 
 // GetGamesBySeason returns all finished games for a season, ordered by date.
 func (s *Store) GetGamesBySeason(season string) ([]GameRow, error) {
+	// Count first for debugging
+	var total, withScores int
+	s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ?", season).Scan(&total)
+	s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ? AND resultado_casa IS NOT NULL AND resultado_fora IS NOT NULL", season).Scan(&withScores)
+	log.Printf("[games] season %s: %d total, %d with scores", season, total, withScores)
+
 	rows, err := s.db.Query(`SELECT id, season, data, equipa_casa, equipa_fora, resultado_casa, resultado_fora
 		FROM games WHERE season = ? AND resultado_casa IS NOT NULL AND resultado_fora IS NOT NULL
 		ORDER BY data ASC`, season)
@@ -147,12 +154,9 @@ func (s *Store) GetGamesBySeason(season string) ([]GameRow, error) {
 	var out []GameRow
 	for rows.Next() {
 		var g GameRow
-		var hc, ac sql.NullInt64
-		if err := rows.Scan(&g.ID, &g.Season, &g.Data, &g.HomeTeam, &g.AwayTeam, &hc, &ac); err != nil {
+		if err := rows.Scan(&g.ID, &g.Season, &g.Data, &g.HomeTeam, &g.AwayTeam, &g.HomeScore, &g.AwayScore); err != nil {
 			return nil, err
 		}
-		if hc.Valid { g.HomeScore = int(hc.Int64) }
-		if ac.Valid { g.AwayScore = int(ac.Int64) }
 		out = append(out, g)
 	}
 	return out, rows.Err()
