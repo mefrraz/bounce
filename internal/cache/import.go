@@ -104,6 +104,12 @@ func (s *Store) importSeasonSimple(table, season string) (int, error) {
 			total++
 		}
 
+		// Verify immediately after batch
+		s.db.Exec("PRAGMA wal_checkpoint(FULL)")
+		var verifyCount int
+		s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ?", season).Scan(&verifyCount)
+		log.Printf("[import] %s page at offset %d: inserted %d, DB has %d for this season", season, offset, len(games), verifyCount)
+
 		if len(games) < 1000 { break }
 		offset += 1000
 	}
