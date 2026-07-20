@@ -3,12 +3,14 @@ package fpbapi
 import (
 	"fmt"
 	"log"
+	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/mefrraz/bounce/internal/clubs"
 )
 
-// ScrapeAllClubs fetches games for all clubs for a season across ALL categories/genders.
+// ScrapeAllClubs fetches games for ALL clubs for a season, auto-discovering categories first.
 func (f *FPBAPI) ScrapeAllClubs(season string) {
 	allClubs := clubs.All()
 	if len(allClubs) == 0 {
@@ -16,58 +18,64 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 		return
 	}
 
-	categories := []struct{ cat, gen string }{
-		{"Senior", "masculino"}, {"Senior", "feminino"},
-		{"Sub-18", "masculino"}, {"Sub-18", "feminino"},
-		{"Sub-16", "masculino"}, {"Sub-16", "feminino"},
-		{"Sub-14", "masculino"}, {"Sub-14", "feminino"},
-	}
+	// 1. Discover categories — fetch one big club without category filter
+	categories := f.discoverCategories(season)
+	log.Printf("[scrape] %s — %d clubs × %d categories (discovered)", season, len(allClubs), len(categories))
 
-	log.Printf("[scrape] %s — %d clubs × %d categories", season, len(allClubs), len(categories))
 	start := time.Now()
 	total := 0
 	errors := 0
+	parallel := 50
 
-	for _, cg := range categories {
+	for _, cat := range categories {
 		catStart := time.Now()
-		catTotal := 0
-		batchSize := 5
-		for i := 0; i < len(allClubs); i += batchSize {
-			end := i + batchSize
-			if end > len(allClubs) { end = len(allClubs) }
-			batch := allClubs[i:end]
+		var catTotal int64
+		sem := make(chan struct{}, parallel)
 
-			sem := make(chan struct{}, batchSize)
-			results := make(chan int, len(batch))
-			for _, club := range batch {
-				sem <- struct{}{}
-				go func(clubID int) {
-					defer func() { <-sem }()
-					games, err := f.GetGamesByClub(fmt.Sprint(clubID), season, cg.cat, cg.gen)
-					if err != nil { errors++; results <- 0; return }
-					results <- len(games)
-				}(club.ID)
-			}
-			for range batch { catTotal += <-results }
+		for _, club := range allClubs {
+			sem <- struct{}{}
+			go func(clubID int, category string) {
+				defer func() { <-sem }()
+				games, err := f.GetGamesByClub(fmt.Sprint(clubID), season, category, "")
+				if err != nil { errors++; return }
+				atomic.AddInt64(&catTotal, int64(len(games)))
+			}(club.ID, cat)
 		}
-		total += catTotal
-		log.Printf("[scrape]   %s/%s: %d games in %v", cg.cat, cg.gen, catTotal, time.Since(catStart).Round(time.Second))
+		for i := 0; i < parallel; i++ { sem <- struct{}{} }
+
+		total += int(catTotal)
+		log.Printf("[scrape]   %s: %d games (%v)", cat, catTotal, time.Since(catStart).Round(time.Second))
 	}
 
 	elapsed := time.Since(start).Round(time.Second)
 	log.Printf("[scrape] %s done: %d games, %d errors in %v", season, total, errors, elapsed)
+}
 
-	// Discover categories after each season completes
-	db := f.Cache().DB()
-	var catCount int
-	db.QueryRow("SELECT COUNT(DISTINCT escalao) FROM games").Scan(&catCount)
-	if catCount > len(categories) {
-		rows, _ := db.Query("SELECT DISTINCT escalao FROM games ORDER BY escalao")
-		if rows != nil {
-			var cats []string
-			for rows.Next() { var c string; rows.Scan(&c); cats = append(cats, c) }
-			rows.Close()
-			log.Printf("[scrape] ⚡ discovered %d categories: %v", len(cats), cats)
+// discoverCategories fetches a few big clubs without category filter to find all categories.
+func (f *FPBAPI) discoverCategories(season string) []string {
+	bigClubs := []int{120, 127, 169} // Porto, Benfica, Sporting
+	seen := map[string]bool{}
+
+	for _, clubID := range bigClubs {
+		games, err := f.GetGamesByClub(fmt.Sprint(clubID), season, "", "")
+		if err != nil || len(games) == 0 {
+			continue
+		}
+		for _, g := range games {
+			if g.Category != "" {
+				seen[g.Category] = true
+			}
 		}
 	}
+
+	var result []string
+	for cat := range seen { result = append(result, cat) }
+	sort.Strings(result)
+
+	if len(result) == 0 {
+		return []string{"Senior", "Sub-18", "Sub-16", "Sub-14"}
+	}
+
+	log.Printf("[scrape] discovered %d categories: %v", len(result), result)
+	return result
 }
