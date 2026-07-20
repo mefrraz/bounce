@@ -36,6 +36,7 @@ _ "github.com/andybalholm/brotli"
 	"github.com/mefrraz/bounce/internal/models"
 	"github.com/mefrraz/bounce/internal/scheduler"
 	"github.com/mefrraz/bounce/internal/ws"
+	"github.com/mefrraz/bounce/internal/elo"
 )
 
 var adminLoginHTML = []byte(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Bounce Admin · Login</title><style>:root{--bg:#09090b;--card:#18181b;--border:rgba(255,255,255,0.1);--text:#f4f4f5;--muted:#71717a;--accent:#ff6b35}body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;width:360px;text-align:center}h1{font-size:22px;margin:0 0 8px}.sub{color:var(--muted);font-size:14px;margin:0 0 20px}input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:14px;box-sizing:border-box;outline:none}input:focus{border-color:var(--accent)}button{margin-top:12px;width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer}.err{color:#ef4444;font-size:13px;margin-top:8px;display:none}</style></head><body><div class="card"><h1>🔐 Bounce Admin</h1><p class="sub">Enter admin token to continue</p><input type="password" id="token" placeholder="BOUNCE_ADMIN_TOKEN"><button onclick="login()">Login</button><p class="err" id="err">Invalid token</p></div><script>async function login(){const r=await fetch('/admin/login',{method:'POST',body:JSON.stringify({token:document.getElementById('token').value})});if(r.ok)location.reload();else document.getElementById('err').style.display='block'}</script></body></html>`)
@@ -79,13 +80,35 @@ bouncedb = store
 
 	fpb := fpbapi.New(client, store)
 
-	// Import historical games from Supabase (one-time, skipped if games exist)
+	// Import historical games + calculate ELO for ALL seasons with games
 	go func() {
-		seasons := store.ImportGamesFromSupabase()
-		for _, s := range seasons {
-			log.Printf("[import] recalculating ELO for %s", s)
+		store.ImportGamesFromSupabase()
+
+		// Find all seasons that have games in the DB
+		rows, err := store.DB().Query("SELECT DISTINCT season FROM games ORDER BY season")
+		if err != nil {
+			log.Printf("[elo] failed to query seasons: %v", err)
+			return
+		}
+		defer rows.Close()
+
+		var allSeasons []string
+		for rows.Next() {
+			var s string
+			if err := rows.Scan(&s); err == nil && s != "" {
+				allSeasons = append(allSeasons, s)
+			}
+		}
+
+		// Calculate ELO for any season missing data
+		eloStore := elo.NewStore(store.DB())
+		for _, s := range allSeasons {
+			if eloStore.HasSeason(s) {
+				continue // already has ELO
+			}
+			log.Printf("[elo] auto-calculating missing season %s", s)
 			if err := fpb.RecalculateELO(s); err != nil {
-				log.Printf("[import] ELO %s error: %v", s, err)
+				log.Printf("[elo] %s error: %v", s, err)
 			}
 		}
 	}()
