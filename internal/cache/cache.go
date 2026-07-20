@@ -145,10 +145,12 @@ func (s *Store) GetGamesBySeason(season string) ([]GameRow, error) {
 	s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ?", season).Scan(&total)
 	s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ? AND resultado_casa IS NOT NULL AND resultado_fora IS NOT NULL", season).Scan(&withScores)
 	
-	// Also check: total rows in whole table
+	// Also check: what seasons exist + grand total
 	var grandTotal int
+	var sampleSeason string
 	s.db.QueryRow("SELECT COUNT(*) FROM games").Scan(&grandTotal)
-	log.Printf("[games] season=%q total=%d scored=%d grandTotal=%d", season, total, withScores, grandTotal)
+	s.db.QueryRow("SELECT season FROM games LIMIT 1").Scan(&sampleSeason)
+	log.Printf("[games] season=%q total=%d scored=%d grandTotal=%d sample=%q", season, total, withScores, grandTotal, sampleSeason)
 
 	rows, err := s.db.Query(`SELECT id, season, data, equipa_casa, equipa_fora, resultado_casa, resultado_fora
 		FROM games WHERE season = ? AND resultado_casa IS NOT NULL AND resultado_fora IS NOT NULL
