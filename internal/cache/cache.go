@@ -140,11 +140,15 @@ func (s *Store) UpsertGame(id, season, data, hora, equipaCasa, equipaFora, compe
 
 // GetGamesBySeason returns all finished games for a season, ordered by date.
 func (s *Store) GetGamesBySeason(season string) ([]GameRow, error) {
-	// Count first for debugging
+	// Debug: run raw query and log
 	var total, withScores int
 	s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ?", season).Scan(&total)
 	s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ? AND resultado_casa IS NOT NULL AND resultado_fora IS NOT NULL", season).Scan(&withScores)
-	log.Printf("[games] season %s: %d total, %d with scores", season, total, withScores)
+	
+	// Also check: total rows in whole table
+	var grandTotal int
+	s.db.QueryRow("SELECT COUNT(*) FROM games").Scan(&grandTotal)
+	log.Printf("[games] season=%q total=%d scored=%d grandTotal=%d", season, total, withScores, grandTotal)
 
 	rows, err := s.db.Query(`SELECT id, season, data, equipa_casa, equipa_fora, resultado_casa, resultado_fora
 		FROM games WHERE season = ? AND resultado_casa IS NOT NULL AND resultado_fora IS NOT NULL
