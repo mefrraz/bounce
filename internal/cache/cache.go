@@ -147,9 +147,12 @@ func (s *Store) GetGamesBySeason(season string) ([]GameRow, error) {
 	var out []GameRow
 	for rows.Next() {
 		var g GameRow
-		if err := rows.Scan(&g.ID, &g.Season, &g.Data, &g.HomeTeam, &g.AwayTeam, &g.HomeScore, &g.AwayScore); err != nil {
+		var hc, ac sql.NullInt64
+		if err := rows.Scan(&g.ID, &g.Season, &g.Data, &g.HomeTeam, &g.AwayTeam, &hc, &ac); err != nil {
 			return nil, err
 		}
+		if hc.Valid { g.HomeScore = int(hc.Int64) }
+		if ac.Valid { g.AwayScore = int(ac.Int64) }
 		out = append(out, g)
 	}
 	return out, rows.Err()
