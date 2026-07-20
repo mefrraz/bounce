@@ -18,7 +18,7 @@ func supabaseConfig() (url, anonKey string) {
 	return
 }
 
-var seasonsToImport = []string{
+var SeasonsToImport = []string{
 	"2016/2017", "2017/2018", "2018/2019", "2019/2020",
 	"2020/2021", "2021/2022", "2022/2023", "2023/2024", "2024/2025", "2025/2026",
 }
@@ -32,12 +32,12 @@ func (s *Store) ImportGamesFromSupabase() []string {
 		return nil
 	}
 
-	log.Printf("[import] starting Supabase → SQLite migration for %d seasons", len(seasonsToImport))
+	log.Printf("[import] starting Supabase → SQLite migration for %d seasons", len(SeasonsToImport))
 	start := time.Now()
 	total := 0
 	var imported []string
 
-	for _, season := range seasonsToImport {
+	for _, season := range SeasonsToImport {
 		table := "games_" + strings.ReplaceAll(season, "/", "_")
 		n, err := s.importSeasonSimple(table, season)
 		if err != nil {

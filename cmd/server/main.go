@@ -90,8 +90,10 @@ bouncedb = store
 			if bounceMode == "import" {
 				store.ImportGamesFromSupabase()
 			} else if bounceMode == "scrape" {
-				log.Printf("[scrape] mode=scrape — scraping all clubs for current season")
-				fpb.ScrapeAllClubs(cache.CurrentSeason())
+				log.Printf("[scrape] mode=scrape — scraping all clubs for all known seasons")
+				for _, s := range cache.SeasonsToImport {
+					fpb.ScrapeAllClubs(s)
+				}
 			}
 
 			// Calculate ELO for all seasons with games (regardless of mode)
