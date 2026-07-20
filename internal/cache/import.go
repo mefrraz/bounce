@@ -84,6 +84,10 @@ func (s *Store) importSeasonSimple(table, season string) (int, error) {
 
 		if len(games) == 0 { break }
 
+		// Use explicit transaction per batch and commit immediately
+		tx, err := s.db.Begin()
+		if err != nil { return total, err }
+
 		for _, g := range games {
 			id := g.Slug
 			if id == "" { continue }
@@ -92,20 +96,31 @@ func (s *Store) importSeasonSimple(table, season string) (int, error) {
 			lf := g.LogotipoFora; if lf == "" { lf = "-" }
 			st := g.Status; if st == "" { st = "FINALIZADO" }
 
-			_, err := s.db.Exec(
+			_, err := tx.Exec(
 				`INSERT OR REPLACE INTO games (id, season, data, hora, equipa_casa, equipa_fora, resultado_casa, resultado_fora, competicao, escalao, local, status, logo_casa, logo_fora)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				id, season, g.Data, g.Hora, g.EquipaCasa, g.EquipaFora, g.ResultadoCasa, g.ResultadoFora, g.Competicao, g.Escalao, loc, st, lc, lf)
 			if err != nil {
-				log.Printf("[import] insert error: %v", err)
+				tx.Rollback()
 				return total, err
 			}
 			total++
 		}
 
+		if err := tx.Commit(); err != nil {
+			return total, err
+		}
+
+		log.Printf("[import] %s page %d: committed %d rows (total=%d)", season, offset/1000, len(games), total)
+
 		if len(games) < 1000 { break }
 		offset += 1000
 	}
+
+	// Verify after season completes
+	var verifyCount int
+	s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ?", season).Scan(&verifyCount)
+	log.Printf("[import] %s: %d rows verified in DB after import", season, verifyCount)
 
 	return total, nil
 }
