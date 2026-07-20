@@ -310,6 +310,42 @@ func StartDailyRefresh() {
 			time.Sleep(24 * time.Hour)
 			log.Printf("[clubs] daily refresh starting")
 			RefreshFromFPB()
+			EnsureColors()
 		}
 	}()
+}
+
+// EnsureColors extracts dominant colors from logos for clubs missing primary_color.
+func EnsureColors() {
+	clubsMu.RLock()
+	var needColor []int
+	for i := range clubsData {
+		if clubsData[i].PrimaryColor == "" || clubsData[i].PrimaryColor == "#000000" {
+			needColor = append(needColor, i)
+		}
+	}
+	clubsMu.RUnlock()
+
+	if len(needColor) == 0 { return }
+
+	log.Printf("[clubs] extracting colors for %d clubs without primary_color", len(needColor))
+	updated := 0
+	for _, i := range needColor {
+		clubsMu.RLock()
+		url := clubsData[i].LogoURL
+		clubsMu.RUnlock()
+
+		if url == "" { continue }
+		color := ExtractColor(url)
+		if color == "#000000" { continue }
+
+		clubsMu.Lock()
+		clubsData[i].PrimaryColor = color
+		clubsMu.Unlock()
+		updated++
+	}
+	if updated > 0 {
+		saveToDisk()
+		log.Printf("[clubs] extracted colors for %d clubs", updated)
+	}
 }

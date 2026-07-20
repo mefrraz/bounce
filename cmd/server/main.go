@@ -57,6 +57,7 @@ func main() {
 		clubs.RefreshFromFPB()
 	}
 	clubs.StartDailyRefresh()
+	go clubs.EnsureColors() // extract logo colors in background
 
 	rateLimit := 100
 	if rlEnv := os.Getenv("BOUNCE_RATE_LIMIT"); rlEnv != "" {
