@@ -65,13 +65,8 @@ type gameRow struct {
 
 func (s *Store) importSeasonSimple(table, season string) (int, error) {
 	total := 0
-
-	// Prepare insert statement once
-	stmt, err := s.db.Prepare(`INSERT OR REPLACE INTO games (id, season, data, hora, equipa_casa, equipa_fora, resultado_casa, resultado_fora, competicao, escalao, local, status, logo_casa, logo_fora) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-	if err != nil { return 0, err }
-	defer stmt.Close()
-
 	offset := 0
+
 	for {
 		url := fmt.Sprintf("%s/%s?select=slug,data,hora,equipa_casa,equipa_fora,resultado_casa,resultado_fora,competicao,escalao,local,status,logotipo_casa,logotipo_fora&order=data.asc&limit=1000&offset=%d", supabaseURL, table, offset)
 
@@ -97,18 +92,16 @@ func (s *Store) importSeasonSimple(table, season string) (int, error) {
 			lf := g.LogotipoFora; if lf == "" { lf = "-" }
 			st := g.Status; if st == "" { st = "FINALIZADO" }
 
-			if _, err := stmt.Exec(id, season, g.Data, g.Hora, g.EquipaCasa, g.EquipaFora, g.ResultadoCasa, g.ResultadoFora, g.Competicao, g.Escalao, loc, st, lc, lf); err != nil {
+			_, err := s.db.Exec(
+				`INSERT OR REPLACE INTO games (id, season, data, hora, equipa_casa, equipa_fora, resultado_casa, resultado_fora, competicao, escalao, local, status, logo_casa, logo_fora)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				id, season, g.Data, g.Hora, g.EquipaCasa, g.EquipaFora, g.ResultadoCasa, g.ResultadoFora, g.Competicao, g.Escalao, loc, st, lc, lf)
+			if err != nil {
 				log.Printf("[import] insert error: %v", err)
 				return total, err
 			}
 			total++
 		}
-
-		// Verify immediately after batch
-		s.db.Exec("PRAGMA wal_checkpoint(FULL)")
-		var verifyCount int
-		s.db.QueryRow("SELECT COUNT(*) FROM games WHERE season = ?", season).Scan(&verifyCount)
-		log.Printf("[import] %s page at offset %d: inserted %d, DB has %d for this season", season, offset, len(games), verifyCount)
 
 		if len(games) < 1000 { break }
 		offset += 1000
