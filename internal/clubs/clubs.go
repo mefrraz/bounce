@@ -332,7 +332,7 @@ func MaybeAddPending(name, logoURL string) {
 		Priority:     4,
 		EloRating:    1500,
 	})
-	log.Printf("[clubs] auto-added pending: %s (#%d)", name, id)
+	// Silent — summary logged by caller
 }
 
 func nextPendingID() int {
