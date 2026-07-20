@@ -11,8 +11,8 @@ import (
 )
 
 func supabaseConfig() (url, anonKey string) {
-	url = os.Getenv("BOUNCE_SUPABASE_URL")
-	anonKey = os.Getenv("BOUNCE_SUPABASE_ANON_KEY")
+	url = os.Getenv("SUPABASE_URL")
+	anonKey = os.Getenv("SUPABASE_ANON_KEY")
 	if url == "" { url = "https://qdzmwgahencinoucvoop.supabase.co" }
 	if anonKey == "" { anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkem13Z2FoZW5jaW5vdWN2b29wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5NTQ2NTEsImV4cCI6MjA4NTUzMDY1MX0.HNcyu7zHA6oxBNh0T7HX-6Ui-8g2fBE5gFP4xtkpPJ4" }
 	return
