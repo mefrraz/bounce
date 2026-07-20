@@ -147,9 +147,12 @@ func (s *Store) insertGames(games []struct {
 		if logoF == "" { logoF = "-" }
 		status := g.Status
 		if status == "" { status = "FINALIZADO" }
-		// Generate ID from data+teams (older tables don't have id/slug columns)
-		id := g.Data + "-" + strings.ToLower(g.EquipaCasa) + "-" + strings.ToLower(g.EquipaFora)
-		id = strings.ReplaceAll(id, " ", "-")
+		// Use Supabase slug as primary key (unique per game)
+		id := g.Slug
+		if id == "" {
+			id = g.Data + "-" + strings.ToLower(g.EquipaCasa) + "-" + strings.ToLower(g.EquipaFora)
+			id = strings.ReplaceAll(id, " ", "-")
+		}
 
 		if _, err := stmt.Exec(id, season, g.Data, g.Hora, g.EquipaCasa, g.EquipaFora, g.ResultadoCasa, g.ResultadoFora, g.Competicao, g.Escalao, loc, status, logoC, logoF); err != nil {
 			return 0, err
