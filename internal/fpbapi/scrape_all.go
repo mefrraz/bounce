@@ -20,7 +20,7 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 
 	log.Printf("[scrape] %s — %d clubs (all categories, no filter)", season, len(allClubs))
 	start := time.Now()
-	parallel := 20
+	parallel := 8
 
 	var total int64
 	var errors int64
