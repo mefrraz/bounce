@@ -1,19 +1,17 @@
 package httpclient
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net"
-	"os"
-	"strings"
 	"net/http"
+	"strings"
 	"time"
 )
 
 const (
 	userAgent    = "Bounce/0.2 (+https://github.com/mefrraz/bounce)"
-	maxRetries   = 3
+	maxRetries   = 2
 	rateInterval = 1100 * time.Millisecond
 	reqTimeout   = 20 * time.Second
 )
@@ -28,9 +26,15 @@ func New() *Client {
 		http: &http.Client{
 			Timeout: reqTimeout,
 			Transport: &http.Transport{
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 100,
-				IdleConnTimeout:     90 * time.Second,
+				DialContext: (&net.Dialer{
+					Timeout:   10 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				MaxIdleConns:          100,
+				MaxIdleConnsPerHost:   20,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ResponseHeaderTimeout: 15 * time.Second,
 			},
 		},
 		limiter: time.NewTicker(rateInterval),
@@ -70,25 +74,17 @@ func (c *Client) doWithRetry(fetch func() (*http.Response, error)) ([]byte, erro
 		<-c.limiter.C
 		resp, err := fetch()
 		if err != nil {
-			// Don't retry on context/timeout errors — the server is overloaded
-			if isTimeout(err) {
-				return nil, err
-			}
 			lastErr = err
-			time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
 			continue
 		}
-		defer resp.Body.Close()
-		// Read with timeout (fixes io.ReadAll hanging forever)
-		body, err := readWithTimeout(resp.Body, reqTimeout)
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		if err != nil {
 			lastErr = err
-			time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
 			continue
 		}
 		if resp.StatusCode >= 500 {
 			lastErr = fmt.Errorf("server error %d", resp.StatusCode)
-			time.Sleep(time.Duration(attempt+1) * time.Second)
 			continue
 		}
 		if resp.StatusCode == 404 {
@@ -96,42 +92,13 @@ func (c *Client) doWithRetry(fetch func() (*http.Response, error)) ([]byte, erro
 		}
 		return body, nil
 	}
-	return nil, fmt.Errorf("after %d retries: %w", maxRetries, lastErr)
-}
-
-func readWithTimeout(r io.Reader, timeout time.Duration) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	type result struct {
-		data []byte
-		err  error
-	}
-	ch := make(chan result, 1)
-	go func() {
-		data, err := io.ReadAll(r)
-		ch <- result{data, err}
-	}()
-
-	select {
-	case res := <-ch:
-		return res.data, res.err
-	case <-ctx.Done():
-		return nil, fmt.Errorf("read timeout after %v", timeout)
-	}
+	return nil, lastErr
 }
 
 func (c *Client) Stop() {
 	c.limiter.Stop()
 }
 
-func isTimeout(err error) bool {
-	if os.IsTimeout(err) { return true }
-	if ne, ok := err.(net.Error); ok && ne.Timeout() { return true }
-	return false
-}
-
-// FastMode switches to no rate limiter for bulk scraping.
 func (c *Client) FastMode() {
 	c.limiter.Stop()
 	c.limiter = time.NewTicker(1 * time.Nanosecond)
