@@ -39,6 +39,7 @@ var clubsMu sync.RWMutex
 var dataDir string
 var clubsData []Club
 var byLogo map[string]*Club
+var pendingAdded int
 
 // Init loads clubs from disk and sets up the data directory.
 func Init(dir string) error {
@@ -332,7 +333,11 @@ func MaybeAddPending(name, logoURL string) {
 		Priority:     4,
 		EloRating:    1500,
 	})
-	// Silent — summary logged by caller
+	pendingAdded++
+	// Save every 50 new clubs to avoid excessive I/O
+	if pendingAdded%50 == 0 {
+		saveToDisk()
+	}
 }
 
 func nextPendingID() int {
