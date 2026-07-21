@@ -110,6 +110,8 @@ bouncedb = store
 				log.Printf("[elo] calculating %s", s)
 				if err := fpb.RecalculateELO(s); err != nil { log.Printf("[elo] %s: %v", s, err) }
 			}
+
+			log.Printf("[done] scrape + ELO complete. Run: bash ~/backup_to_supabase.sh")
 		}()
 	}
 
