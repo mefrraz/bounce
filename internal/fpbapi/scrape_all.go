@@ -20,7 +20,7 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 
 	log.Printf("[scrape] %s — %d clubs (all categories, no filter)", season, len(allClubs))
 	start := time.Now()
-	parallel := 50
+	parallel := 20
 
 	var total int64
 	var errors int64
@@ -36,18 +36,14 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 			games, err := f.GetGamesByClub(fmt.Sprint(clubID), season, "", "")
 			if err != nil {
 				atomic.AddInt64(&errors, 1)
-				atomic.AddInt64(&processed, 1)
-				if errors > 10 && errors%10 == 0 {
-					log.Printf("[scrape] %d errors so far (last: club %d: %v)", errors, clubID, err)
-				}
-				return
+			} else {
+				atomic.AddInt64(&total, int64(len(games)))
 			}
-			atomic.AddInt64(&total, int64(len(games)))
 			n := int(atomic.AddInt64(&processed, 1))
+			elapsed := time.Since(start).Round(time.Second)
+			pct := n * 100 / len(allClubs)
 			if n%max(1, len(allClubs)/10) == 0 {
-				elapsed := time.Since(start).Round(time.Second)
-				pct := n * 100 / len(allClubs)
-				log.Printf("[scrape]   %d/%d clubs (%d%%, %v elapsed)", n, len(allClubs), pct, elapsed)
+				log.Printf("[scrape]   %d/%d clubs (%d%%, %v elapsed, %d err)", n, len(allClubs), pct, elapsed, errors)
 			}
 		}(club.ID)
 	}

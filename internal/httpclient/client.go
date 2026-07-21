@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
+	"os"
 	"strings"
 	"net/http"
 	"time"
@@ -68,6 +70,10 @@ func (c *Client) doWithRetry(fetch func() (*http.Response, error)) ([]byte, erro
 		<-c.limiter.C
 		resp, err := fetch()
 		if err != nil {
+			// Don't retry on context/timeout errors — the server is overloaded
+			if isTimeout(err) {
+				return nil, err
+			}
 			lastErr = err
 			time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
 			continue
@@ -117,6 +123,12 @@ func readWithTimeout(r io.Reader, timeout time.Duration) ([]byte, error) {
 
 func (c *Client) Stop() {
 	c.limiter.Stop()
+}
+
+func isTimeout(err error) bool {
+	if os.IsTimeout(err) { return true }
+	if ne, ok := err.(net.Error); ok && ne.Timeout() { return true }
+	return false
 }
 
 // FastMode switches to no rate limiter for bulk scraping.
