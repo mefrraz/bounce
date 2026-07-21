@@ -1,6 +1,7 @@
 package httpclient
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -9,9 +10,10 @@ import (
 )
 
 const (
-	userAgent   = "Bounce/0.2 (+https://github.com/mefrraz/bounce)"
-	maxRetries  = 3
+	userAgent    = "Bounce/0.2 (+https://github.com/mefrraz/bounce)"
+	maxRetries   = 3
 	rateInterval = 1100 * time.Millisecond
+	reqTimeout   = 20 * time.Second
 )
 
 type Client struct {
@@ -21,14 +23,23 @@ type Client struct {
 
 func New() *Client {
 	return &Client{
-		http:    &http.Client{Timeout: 15 * time.Second},
+		http: &http.Client{
+			Timeout: reqTimeout,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 100,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 		limiter: time.NewTicker(rateInterval),
 	}
 }
 
 func (c *Client) Get(url string) ([]byte, error) {
 	return c.doWithRetry(func() (*http.Response, error) {
-		req, err := http.NewRequest("GET", url, nil)
+		ctx, cancel := context.WithTimeout(context.Background(), reqTimeout)
+		defer cancel()
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -41,7 +52,9 @@ func (c *Client) Get(url string) ([]byte, error) {
 
 func (c *Client) Post(url, body string) ([]byte, error) {
 	return c.doWithRetry(func() (*http.Response, error) {
-		req, err := http.NewRequest("POST", url, strings.NewReader(body))
+		ctx, cancel := context.WithTimeout(context.Background(), reqTimeout)
+		defer cancel()
+		req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
 		if err != nil {
 			return nil, err
 		}
@@ -63,8 +76,9 @@ func (c *Client) doWithRetry(fetch func() (*http.Response, error)) ([]byte, erro
 			time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
 			continue
 		}
-		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		defer resp.Body.Close()
+		// Read with timeout (fixes io.ReadAll hanging forever)
+		body, err := readWithTimeout(resp.Body, reqTimeout)
 		if err != nil {
 			lastErr = err
 			time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
@@ -83,6 +97,28 @@ func (c *Client) doWithRetry(fetch func() (*http.Response, error)) ([]byte, erro
 	return nil, fmt.Errorf("after %d retries: %w", maxRetries, lastErr)
 }
 
+func readWithTimeout(r io.Reader, timeout time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	type result struct {
+		data []byte
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		data, err := io.ReadAll(r)
+		ch <- result{data, err}
+	}()
+
+	select {
+	case res := <-ch:
+		return res.data, res.err
+	case <-ctx.Done():
+		return nil, fmt.Errorf("read timeout after %v", timeout)
+	}
+}
+
 func (c *Client) Stop() {
 	c.limiter.Stop()
 }
@@ -90,5 +126,5 @@ func (c *Client) Stop() {
 // FastMode switches to no rate limiter for bulk scraping.
 func (c *Client) FastMode() {
 	c.limiter.Stop()
-	c.limiter = time.NewTicker(1 * time.Nanosecond) // effectively no limit
+	c.limiter = time.NewTicker(1 * time.Nanosecond)
 }
