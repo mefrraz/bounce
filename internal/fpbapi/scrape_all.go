@@ -36,6 +36,10 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 			games, err := f.GetGamesByClub(fmt.Sprint(clubID), season, "", "")
 			if err != nil {
 				atomic.AddInt64(&errors, 1)
+				atomic.AddInt64(&processed, 1)
+				if errors > 10 && errors%10 == 0 {
+					log.Printf("[scrape] %d errors so far (last: club %d: %v)", errors, clubID, err)
+				}
 				return
 			}
 			atomic.AddInt64(&total, int64(len(games)))
