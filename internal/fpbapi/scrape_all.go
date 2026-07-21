@@ -20,32 +20,45 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 
 	log.Printf("[scrape] %s — %d clubs (all categories, no filter)", season, len(allClubs))
 	start := time.Now()
-	parallel := 8
-
+	parallel := 4
+	
 	var total int64
 	var errors int64
 	var processed int64
+	var started int64
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, parallel)
 
-	for _, club := range allClubs {
+	for i, club := range allClubs {
 		wg.Add(1)
 		sem <- struct{}{}
-		go func(clubID int) {
+		atomic.AddInt64(&started, 1)
+		go func(clubID int, idx int64) {
 			defer func() { <-sem; wg.Done() }()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[scrape] club %d PANIC: %v", clubID, r)
+					atomic.AddInt64(&errors, 1)
+					atomic.AddInt64(&processed, 1)
+				}
+			}()
 			games, err := f.GetGamesByClub(fmt.Sprint(clubID), season, "", "")
 			if err != nil {
 				atomic.AddInt64(&errors, 1)
+				if errors <= 3 {
+					log.Printf("[scrape] club %d error: %v", clubID, err)
+				}
 			} else {
 				atomic.AddInt64(&total, int64(len(games)))
 			}
 			n := int(atomic.AddInt64(&processed, 1))
 			elapsed := time.Since(start).Round(time.Second)
 			pct := n * 100 / len(allClubs)
+			inFlight := atomic.LoadInt64(&started) - atomic.LoadInt64(&processed) - atomic.LoadInt64(&errors)
 			if n%max(1, len(allClubs)/10) == 0 {
-				log.Printf("[scrape]   %d/%d clubs (%d%%, %v elapsed, %d err)", n, len(allClubs), pct, elapsed, errors)
+				log.Printf("[scrape]   %d/%d clubs (%d%%, %v elapsed, %d err, %d in flight)", n, len(allClubs), pct, elapsed, errors, inFlight)
 			}
-		}(club.ID)
+		}(club.ID, int64(i+1))
 	}
 
 	wg.Wait()
