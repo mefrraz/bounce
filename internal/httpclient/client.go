@@ -12,6 +12,7 @@ const (
 	userAgent   = "Bounce/0.2 (+https://github.com/mefrraz/bounce)"
 	maxRetries  = 3
 	rateInterval = 1100 * time.Millisecond
+	fastInterval = 5 * time.Millisecond
 )
 
 type Client struct {
@@ -85,4 +86,10 @@ func (c *Client) doWithRetry(fetch func() (*http.Response, error)) ([]byte, erro
 
 func (c *Client) Stop() {
 	c.limiter.Stop()
+}
+
+// FastMode switches to a faster rate limiter for bulk scraping.
+func (c *Client) FastMode() {
+	c.limiter.Stop()
+	c.limiter = time.NewTicker(fastInterval)
 }

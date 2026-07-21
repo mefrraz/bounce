@@ -92,6 +92,7 @@ bouncedb = store
 				store.ImportGamesFromSupabase()
 			} else if bounceMode == "scrape" {
 				log.Printf("[scrape] mode=scrape — scraping all clubs for all known seasons")
+				fpb.FastMode()
 				for _, s := range cache.SeasonsToImport {
 					fpb.ScrapeAllClubs(s)
 				}
