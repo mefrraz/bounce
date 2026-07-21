@@ -3,6 +3,7 @@ package fpbapi
 import (
 	"fmt"
 	"log"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -19,25 +20,25 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 
 	log.Printf("[scrape] %s — %d clubs (all categories, no filter)", season, len(allClubs))
 	start := time.Now()
-	parallel := 5000
-	sem := make(chan struct{}, parallel)
+	parallel := 200
 
 	var total int64
 	var errors int64
 	var processed int64
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, parallel)
 
 	for _, club := range allClubs {
+		wg.Add(1)
 		sem <- struct{}{}
 		go func(clubID int) {
-			defer func() { <-sem }()
+			defer func() { <-sem; wg.Done() }()
 			games, err := f.GetGamesByClub(fmt.Sprint(clubID), season, "", "")
 			if err != nil {
 				atomic.AddInt64(&errors, 1)
 				return
 			}
 			atomic.AddInt64(&total, int64(len(games)))
-
-			// Progress every 10%
 			n := int(atomic.AddInt64(&processed, 1))
 			if n%max(1, len(allClubs)/10) == 0 {
 				elapsed := time.Since(start).Round(time.Second)
@@ -47,21 +48,7 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 		}(club.ID)
 	}
 
-	// Wait for all to finish
-	for i := 0; i < parallel; i++ { sem <- struct{}{} }
-
+	wg.Wait()
 	elapsed := time.Since(start).Round(time.Second)
 	log.Printf("[scrape] %s done: %d games, %d errors in %v", season, total, errors, elapsed)
-
-	// Discover all categories found
-	db := f.Cache().DB()
-	rows, err := db.Query("SELECT DISTINCT escalao FROM games ORDER BY escalao")
-	if err == nil {
-		var cats []string
-		for rows.Next() { var c string; rows.Scan(&c); cats = append(cats, c) }
-		rows.Close()
-		if len(cats) > 0 {
-			log.Printf("[scrape] categories in DB: %v", cats)
-		}
-	}
 }
