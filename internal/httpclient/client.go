@@ -37,9 +37,7 @@ func New() *Client {
 
 func (c *Client) Get(url string) ([]byte, error) {
 	return c.doWithRetry(func() (*http.Response, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), reqTimeout)
-		defer cancel()
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -52,9 +50,7 @@ func (c *Client) Get(url string) ([]byte, error) {
 
 func (c *Client) Post(url, body string) ([]byte, error) {
 	return c.doWithRetry(func() (*http.Response, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), reqTimeout)
-		defer cancel()
-		req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
+		req, err := http.NewRequest("POST", url, strings.NewReader(body))
 		if err != nil {
 			return nil, err
 		}
