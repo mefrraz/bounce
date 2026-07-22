@@ -58,17 +58,32 @@ func (f *FPBAPI) ScrapeAllClubs(season string) {
 
 	for _, club := range allClubs {
 		sem <- struct{}{}
-		go func(clubID int) {
+		go func(clubID int, clubName string) {
 			defer func() { <-sem }()
-			games, err := f.GetGamesByClub(fmt.Sprint(clubID), season, "", "")
-			if err != nil {
+			done := make(chan struct {
+				games int
+				err   error
+			}, 1)
+			go func() {
+				g, e := f.GetGamesByClub(fmt.Sprint(clubID), season, "", "")
+				done <- struct {
+					games int
+					err   error
+				}{len(g), e}
+			}()
+			select {
+			case r := <-done:
+				if r.err != nil {
+					atomic.AddInt64(&errors, 1)
+				} else {
+					atomic.AddInt64(&total, int64(r.games))
+				}
+			case <-time.After(60 * time.Second):
+				fmt.Fprintf(os.Stderr, "\033[31m[scrape]\033[0m \033[33m%s\033[0m timeout: club %d %s\n", season, clubID, clubName)
 				atomic.AddInt64(&errors, 1)
-				atomic.AddInt64(&processed, 1)
-				return
 			}
-			atomic.AddInt64(&total, int64(len(games)))
 			atomic.AddInt64(&processed, 1)
-		}(club.ID)
+		}(club.ID, club.ShortName)
 	}
 
 	for i := 0; i < parallel; i++ {
