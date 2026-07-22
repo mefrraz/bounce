@@ -90,6 +90,17 @@ func saveToDiskLocked() error {
 	return os.WriteFile(path, data, 0644)
 }
 
+// ResetToFPB clears all clubs and reloads from the FPB listing page.
+// This gives a clean base of ~295 officially listed clubs with correct IDs.
+func ResetToFPB() {
+	clubsMu.Lock()
+	clubsData = nil
+	byLogo = nil
+	pendingAdded = 0
+	clubsMu.Unlock()
+	RefreshFromFPB()
+}
+
 // RefreshFromFPB scrapes fpb.pt/clubes, extracts club data, and merges with existing.
 // Returns counts: updated, added, errors.
 func RefreshFromFPB() (updated int, added int, errs int) {
