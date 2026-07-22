@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mefrraz/bounce/internal/elo"
@@ -76,4 +78,51 @@ func CurrentSeason() string {
 	year := now.Year()
 	if now.Month() < 7 { year-- }
 	return fmt.Sprintf("%d/%d", year, year+1)
+}
+
+// AdminTestConcurrency tests different concurrency levels against FPB.
+func (h *Handler) AdminTestConcurrency(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	if flusher, ok := w.(http.Flusher); ok { flusher.Flush() }
+
+	levels := []int{1, 2, 3, 5, 8, 10, 15, 20}
+	results := make(map[string]interface{})
+	season := r.URL.Query().Get("season")
+	if season == "" { season = "2024/2025" }
+
+	for _, n := range levels {
+		log.Printf("[test] testing %d parallel...", n)
+		start := time.Now()
+		var ok, fail int64
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, n)
+
+		for i := 0; i < n*3; i++ {
+			wg.Add(1)
+			sem <- struct{}{}
+			go func() {
+				defer func() { <-sem; wg.Done() }()
+				_, err := h.FPB.GetGamesByClub("120", season, "", "")
+				if err != nil { atomic.AddInt64(&fail, 1)
+				} else { atomic.AddInt64(&ok, 1) }
+			}()
+		}
+		for i := 0; i < n; i++ { sem <- struct{}{} }
+		wg.Wait()
+		elapsed := time.Since(start).Round(time.Millisecond)
+		log.Printf("[test] %d parallel: %d ok, %d fail in %v", n, ok, fail, elapsed)
+		results[fmt.Sprintf("parallel_%d", n)] = map[string]interface{}{
+			"ok": ok, "fail": fail, "elapsed": elapsed.String(),
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"season": season, "results": results,
+	})
 }

@@ -45,6 +45,7 @@ r.Get("/api/tugabasket/players", h.GetTugaBasketPlayers)
 r.Get("/api/tugabasket/teams", h.GetTugaBasketTeams)
 	r.Get("/api/elo", h.GetELO)
 	r.Post("/api/admin/elo/recalculate", h.AdminELORecalculate)
+	r.Get("/api/admin/test-concurrency", h.AdminTestConcurrency)
 }
 
 // GetGames supports:

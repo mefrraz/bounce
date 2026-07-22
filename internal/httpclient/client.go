@@ -3,7 +3,6 @@ package httpclient
 import (
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -11,9 +10,8 @@ import (
 
 const (
 	userAgent    = "Bounce/0.2 (+https://github.com/mefrraz/bounce)"
-	maxRetries   = 2
+	maxRetries   = 3
 	rateInterval = 1100 * time.Millisecond
-	reqTimeout   = 20 * time.Second
 )
 
 type Client struct {
@@ -23,20 +21,7 @@ type Client struct {
 
 func New() *Client {
 	return &Client{
-		http: &http.Client{
-			Timeout: reqTimeout,
-			Transport: &http.Transport{
-				DialContext: (&net.Dialer{
-					Timeout:   10 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).DialContext,
-				MaxIdleConns:          100,
-				MaxIdleConnsPerHost:   20,
-				IdleConnTimeout:       90 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ResponseHeaderTimeout: 15 * time.Second,
-			},
-		},
+		http:    &http.Client{Timeout: 30 * time.Second},
 		limiter: time.NewTicker(rateInterval),
 	}
 }
@@ -75,16 +60,19 @@ func (c *Client) doWithRetry(fetch func() (*http.Response, error)) ([]byte, erro
 		resp, err := fetch()
 		if err != nil {
 			lastErr = err
+			time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
 			continue
 		}
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			lastErr = err
+			time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
 			continue
 		}
 		if resp.StatusCode >= 500 {
 			lastErr = fmt.Errorf("server error %d", resp.StatusCode)
+			time.Sleep(time.Duration(attempt+1) * time.Second)
 			continue
 		}
 		if resp.StatusCode == 404 {
@@ -92,14 +80,9 @@ func (c *Client) doWithRetry(fetch func() (*http.Response, error)) ([]byte, erro
 		}
 		return body, nil
 	}
-	return nil, lastErr
+	return nil, fmt.Errorf("after %d retries: %w", maxRetries, lastErr)
 }
 
 func (c *Client) Stop() {
 	c.limiter.Stop()
-}
-
-func (c *Client) FastMode() {
-	c.limiter.Stop()
-	c.limiter = time.NewTicker(1 * time.Nanosecond)
 }
