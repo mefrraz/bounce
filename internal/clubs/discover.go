@@ -3,8 +3,8 @@ package clubs
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -51,10 +51,10 @@ func DiscoverAllClubs(maxID int) {
 	}
 	total := len(toCheck)
 	if total == 0 {
-		log.Printf("[discover] all %d IDs already known, nothing to do", maxID)
+		fmt.Fprintf(os.Stderr, "[discover] all %d IDs already known, nothing to do\n", maxID)
 		return
 	}
-	log.Printf("[discover] scanning %d unknown IDs (1-%d), %d already known",
+	fmt.Fprintf(os.Stderr, "[discover] scanning %d unknown IDs (1-%d), %d already known\n",
 		total, maxID, maxID-total)
 
 	start := time.Now()
@@ -134,7 +134,7 @@ func DiscoverAllClubs(maxID int) {
 				if checked > 0 {
 					eta = elapsed * time.Duration(total-checked) / time.Duration(checked)
 				}
-				log.Printf("[discover] %3d%% · %d/%d · %d new · %d upd · ETA %v",
+				fmt.Fprintf(os.Stderr, "[discover] %3d%% · %d/%d · %d new · %d upd · ETA %v\n",
 					pct, checked, total, nc, up, eta.Round(time.Second))
 			case <-stopProgress:
 				return
@@ -180,7 +180,7 @@ func DiscoverAllClubs(maxID int) {
 	up := atomic.LoadInt64(&updated)
 	sk := atomic.LoadInt64(&skipped)
 	elapsed := time.Since(start).Round(time.Second)
-	log.Printf("[discover] done: %d new, %d updated, %d skipped in %v", nc, up, sk, elapsed)
+	fmt.Fprintf(os.Stderr, "[discover] done: %d new, %d updated, %d skipped in %v\n", nc, up, sk, elapsed)
 }
 
 // fetchClubPage fetches the calendar page for a club and extracts name + logo.
@@ -228,8 +228,6 @@ func fetchClubPage(client *http.Client, id int) (*Club, error) {
 	if strings.Contains(logoURL, "1200x628.png") || strings.Contains(logoURL, "Logo-FPB.jpg") {
 		logoURL = ""
 	}
-
-	log.Printf("[discover] club: ID=%d name=%q logo=%s", id, name, logoURL)
 
 	return &Club{
 		ID:         id,
